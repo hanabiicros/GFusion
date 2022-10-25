@@ -9,6 +9,7 @@ from typing import Sequence
 
 from torch.utils.data import dataset
 
+from reid.evaluation.ranking import cmc, mean_ap, mean_ap2, map_cmc
 from reid.post_process.track_prob import track_score
 from reid.profile.fusion_param import get_fusion_param, ctrl_msg
 from reid.utils.file_helper import read_lines, read_lines_and, write, safe_remove
@@ -37,12 +38,12 @@ def smooth_score(c1, c2, time1, time2, camera_delta_s, track_interval=20, filter
     return score
 
 
-def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False, interval = 25):
+def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False, interval = 25, filter = 40000):
     # fusion_param = get_fusion_param()
     # persons_deltas_score = pickle_load(fusion_param['persons_deltas_path'])
     # if pickle_load(fusion_param['persons_deltas_path']) is not None:
     #     return persons_deltas_score
-    predict_path = fusion_param['renew_pid_path']
+    # predict_path = fusion_param['renew_pid_path']
     # test_tracks.txt
     # print("len(real_tracks):{}".format(len(real_tracks)))
     len_track = len(real_tracks)
@@ -67,6 +68,7 @@ def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False
                 s2 = real_tracks[i][3]
                 if s1 != s2:
                     # person_deltas_score.append(-1.0)
+                    sts_score[i][j] = -2
                     continue
             time1 = real_tracks[j][2]
             # if track_score_idx == 3914:
@@ -76,24 +78,24 @@ def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False
             c2 = real_tracks[i][1]
             temp = temp + 1 
             if smooth:
-                if '_dukequerytail' in predict_path:
-                    score = track_score(camera_delta_s, c1, time1, c2, time2, interval=500, moving_st=True, filter_interval=50000)
-                else:
-                    score = smooth_score(c1, c2, time1, time2, camera_delta_s)
+                # if '_dukequerytail' in predict_path:
+                #     score = track_score(camera_delta_s, c1, time1, c2, time2, interval=500, moving_st=True, filter_interval=50000)
+                # else:
+                score = smooth_score(c1, c2, time1, time2, camera_delta_s)
             else:
                 # 给定摄像头，时间，获取时空评分，这里camera_deltas如果是随机算出来的，则是随机评分
                 # todo grid 需要 改区间大小
-                if '_dukequerytail' in predict_path:
-                    score = track_score(camera_delta_s, c1, time1, c2, time2,
-                                        interval = fusion_param['window_interval'], moving_st=True,
-                                        filter_interval = fusion_param['filter_interval'])
-                else:
-                    score = track_score(camera_delta_s, c1, time1, c2, time2, interval = interval, filter_interval=40000) #700，40000
+                # if '_dukequerytail' in predict_path:
+                #     score = track_score(camera_delta_s, c1, time1, c2, time2,
+                #                         interval = fusion_param['window_interval'], moving_st=True,
+                #                         filter_interval = fusion_param['filter_interval'])
+                # else:
+                score = track_score(camera_delta_s, c1, time1, c2, time2, interval = interval, filter_interval = filter) #700，40000
                     #  X[probe_i][pid4probe] = score
                     # if(probe_i < 10 and temp < 100):
                     #     print("probe_i:{},real_tracks[probe_i]:{},pid4probe:{},real_tracks[pid4probe]:{},sp_score:{}".format(probe_i,real_tracks[probe_i],pid4probe,real_tracks[pid4probe],score))
-            if(score != -1.0):
-                sts_score[i][j] = score
+            # if(score != -1.0):
+            sts_score[i][j] = score
         #     person_deltas_score.append(score)
         # probe_i += 1
         # persons_deltas_score.append(person_deltas_score)
@@ -135,7 +137,7 @@ def get_data(source, target, data_dir):
     # dataset = datasets.create(name, root)
     # return dataset
     dataset = Person(data_dir, target, source)
-    return dataset.target_train_real
+    return dataset
 
 # def train_tracks(fusion_param, source, target):
 #     # dataset = get_data('dukemtmc','/hdd/sdb/zyb/TFusion/SpCL/data')
@@ -160,81 +162,81 @@ def get_data(source, target, data_dir):
     # return real_tracks
 
 
-def fusion_st_img_ranker(fusion_param, source = 'DukeMTMC-reID', target = 'market', data_path = '/hdd/sdb/lsc/dataset_person', interval=25, sim = None):
+def fusion_st_img_ranker(fusion_param, source = 'DukeMTMC-reID', target = 'market', data_path = '/hdd/sdb/lsc/dataset_person', interval=25, scores = None):
     ep = fusion_param['ep']
     en = fusion_param['en']
     # print('ep:{}\t en:{}'.format(ep,en))
     # 从renew_pid和renew_ac获取预测的人物id和图像分数
     # persons_ap_scores = predict_img_scores(fusion_param)
-    # persons_ap_scores = sim
+    persons_ap_scores = scores
     # persons_ap_pids = predict_pids(fusion_param)
     # 从磁盘获取之前建立的时空模型，以及随机时空模型
     camera_delta_s = pickle_load(fusion_param['distribution_pickle_path'])
     # rand_delta_s = pickle_load(fusion_param['rand_distribution_pickle_path'])
     # diff_delta_s = pickle_load(fusion_param['rand_distribution_pickle_path'].replace('rand', 'diff'))
 
-    train = get_data(source, target, data_path)
+    dataset = get_data(source, target, data_path)
+    train = dataset.target_train_real
     real_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in train]
     # 计算时空评分和随机时空评分
     print("时空评分计算...")
-    sts_person = predict_track_scores(real_tracks, camera_delta_s, fusion_param, interval = interval)
-    sts_person = np.array(sts_person)
+    if target == 'msmt17':
+        persons_track_scores = predict_track_scores(real_tracks, camera_delta_s, fusion_param, interval = interval, filter = 1000)
+    else:
+        persons_track_scores = predict_track_scores(real_tracks, camera_delta_s, fusion_param, interval = interval)
+    persons_track_scores = np.array(persons_track_scores)
     # eval_path = 'eval/market2duke-train'
     # mkdir_if_missing(eval_path)
     # score_path = os.path.join(eval_path, 'st_score.txt')
     # np.savetxt(score_path, sts_person, fmt='%.7f')
-    return sts_person
+    return persons_track_scores
 
     print("随机时空评分计算...")
     rand_track_scores = predict_track_scores(real_tracks, rand_delta_s, fusion_param, interval = interval)
-    diff_track_scores = rand_track_scores # predict_track_scores(real_tracks, diff_delta_s, fusion_param)
+    # diff_track_scores = rand_track_scores # predict_track_scores(real_tracks, diff_delta_s, fusion_param)
 
-    persons_cross_scores = [[0 for i in range(len(sim))] for j in range(len(sim))]
+    persons_cross_scores = [[0 for i in range(len(scores))] for j in range(len(scores))]
     # log_path = fusion_param['eval_fusion_path']
     # map_score_path = fusion_param['fusion_normal_score_path']
     # safe_remove(map_score_path)
     # safe_remove(log_path)
     # line_log_cnt = 10
 
-    # for i, person_ap_scores in enumerate(persons_ap_scores):
-    #     cur_max_vision = max(person_ap_scores)
-    #     cur_min_vision = min(person_ap_scores)
-    #     persons_ap_scores[i] = (persons_ap_scores[i] - cur_min_vision) / (cur_max_vision - cur_min_vision)
-        # persons_ap_scores[i] = np.exp(persons_ap_scores[i] * 3)
-        # cur_max_vision = max(persons_ap_scores[i])
-        # cur_min_vision = min(persons_ap_scores[i])
-        # persons_ap_scores[i] = (persons_ap_scores[i] - cur_min_vision) / (cur_max_vision - cur_min_vision)
+    for i, person_ap_scores in enumerate(persons_ap_scores):
+        cur_max_vision = max(person_ap_scores)
+        cur_min_vision = min(person_ap_scores)
+        persons_ap_scores[i] = (persons_ap_scores[i] - cur_min_vision) / (cur_max_vision - cur_min_vision)
+        persons_ap_scores[i] = np.exp(persons_ap_scores[i] * 3)
+        cur_max_vision = max(persons_ap_scores[i])
+        cur_min_vision = min(persons_ap_scores[i])
+        persons_ap_scores[i] = (persons_ap_scores[i] - cur_min_vision) / (cur_max_vision - cur_min_vision)
 
-    for i, person_ap_pids in enumerate(persons_ap_pids):
+    # for i, person_ap_pids in enumerate(persons_ap_pids):
+    for i in range(len(scores)):
         # cross_scores = list()
-        for j, person_ap_pid in enumerate(person_ap_pids):
+        for j in range(len(scores[0])):
             if persons_track_scores[i][j] == -1 or persons_track_scores[i][j] == 0:
                 continue
             elif rand_track_scores[i][j] < 0.00002:
-                cross_score = (persons_track_scores[i][j]*(1-ep) - en*diff_track_scores[i][j]) * (persons_ap_scores[i][j]+ep/(1-ep-en)) / 0.00002
+                cross_score = (persons_track_scores[i][j]) * (persons_ap_scores[i][j]) / 0.00002
             else:
-                cross_score = (persons_track_scores[i][j] * (1 - ep) - en * diff_track_scores[i][j]) * (
-                persons_ap_scores[i][j] + ep / (1 - ep - en)) / rand_track_scores[i][j]
-            
+                cross_score = (persons_track_scores[i][j]) * (persons_ap_scores[i][j]) / rand_track_scores[i][j]
             persons_cross_scores[i][j] = cross_score
         #     cross_scores.append(cross_score)
         # persons_cross_scores.append(cross_scores)
     print('img score ready')
-    # max_score = max([max(predict_cross_scores) for predict_cross_scores in persons_cross_scores])
-    # print('max_cross_score %f' % max_score)
+    max_score = max([max(predict_cross_scores) for predict_cross_scores in persons_cross_scores])
+    print('max_cross_score %f' % max_score)
 
     persons_cross_scores = np.array(persons_cross_scores)
 
     for i, person_cross_scores in enumerate(persons_cross_scores):
-        filter_arr = person_cross_scores != 0
-        arr = person_cross_scores[filter_arr]
-        sum_score = sum(np.exp(arr))
         for j, person_cross_score in enumerate(person_cross_scores):
             if person_cross_score > 0: # diff camera
                 # diff seq not sort and not normalize
-                persons_cross_scores[i][j] = np.exp(persons_cross_scores[i][j]) / sum_score
-            # else: # same camera and (diff camere && rand score == -1    )
-            #     persons_cross_scores[i][j] = persons_ap_scores[i][j]
+                persons_cross_scores[i][j] /= max_score
+            else: # same camera and (diff camere && rand score == -1    )
+                persons_cross_scores[i][j] = persons_ap_scores[i][j]
             # if real_tracks[i][1] == real_tracks[persons_ap_pids[i][j]][1]:
             #     # print('%d, %d' % (i, j)
             #     persons_cross_scores[i][j] = 0
@@ -334,162 +336,131 @@ def simple_fusion_st_img_ranker(fusion_param):
     np.savetxt(log_path, sorted_persons_ap_pids, fmt='%d')
     np.savetxt(map_score_path, sorted_persons_ap_scores, fmt='%f')
 
-def gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, fusion_param, smooth=False,interval=50):
-    predict_path = fusion_param['renew_pid_path']
+def gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, indexs, fusion_param, smooth=False, interval=50, filter=50000):
+    # predict_path = fusion_param['renew_pid_path']
 
-    persons_deltas_score = list()
-    pids4probes = np.genfromtxt(predict_path, delimiter=' ', dtype = np.int32)
-    for probe_i, pids4probe in enumerate(pids4probes):
-        person_deltas_score = np.ones(len(pids4probe))
-        if probe_i % 100 == 0:
-            print('processing track score for probe %d' % probe_i)
-        for i, pid4probe in enumerate(pids4probe):
+    # persons_deltas_score = list()
+    # len_query = len(query_tracks)
+    # len_gallery = len(gallery_tracks)
+    sts_scores = []
+    # pids4probes = np.genfromtxt(predict_path, delimiter=' ', dtype = np.int32)
+    for i in range(len(indexs)):
+        st_scores = []
+        for j in indexs[i]:
             # if i >= top_cnt:
             #     break
-            pid4probe = int(pid4probe)
-            if len(query_tracks[0]) > 3:
-                # market index minus 1
-                probe_i_tmp = probe_i # (probe_i + 1) % len(pids4probes)
-            else:
-                probe_i_tmp = probe_i
-            # todo transfer: if predict by python, start from 0, needn't minus 1
-            # predict_idx = predict_idx - 1
-            if len(query_tracks[probe_i_tmp]) > 3:
-                s1 = query_tracks[probe_i_tmp][3]
+            # pid4probe = int(pid4probe)
+            # if len(query_tracks[0]) > 3:
+            #     # market index minus 1
+            #     probe_i_tmp = probe_i # (probe_i + 1) % len(pids4probes)
+            # else:
+            #     probe_i_tmp = probe_i
+            # # todo transfer: if predict by python, start from 0, needn't minus 1
+            # # predict_idx = predict_idx - 1
+            if len(query_tracks[i]) > 3:
+                s1 = query_tracks[i][3]
                 # print(predict_idx
-                s2 = gallery_tracks[pid4probe][3]
+                s2 = gallery_tracks[j][3]
                 if s1 != s2:
-                    person_deltas_score[i] = -1.0
+                    # person_deltas_score[i] = -1.0
+                    st_scores.append(-2.0)
                     continue
-            time1 = query_tracks[probe_i_tmp][2]
+            time1 = query_tracks[i][2]
             # if track_score_idx == 3914:
             #     print('test'
-            time2 = gallery_tracks[pid4probe][2]
-            c1 = query_tracks[probe_i_tmp][1]
-            c2 = gallery_tracks[pid4probe][1]
-            if smooth:
-                # 给定摄像头，时间，获取时空评分，这里camera_deltas如果是随机算出来的，则是随机评分
-                if 'market_market' in predict_path:
-                    score = smooth_score(c1, c2, time1, time2, camera_delta_s, track_interval=20, filter_interval=500)
-                elif '_market' in predict_path:
-                    score = smooth_score(c1, c2, time1, time2, camera_delta_s, track_interval=140, filter_interval=40000)
-                elif '_dukequerytail' in predict_path:
-                    score = track_score(camera_delta_s, c1, time1, c2, time2, interval=100, moving_st=True, filter_interval=50000)
-                elif '_duke' in predict_path:
-                    score = smooth_score(c1, c2, time1, time2, camera_delta_s, track_interval=140, filter_interval=50000)
-                else:
-                    score = smooth_score(c1, c2, time1, time2, camera_delta_s)
+            time2 = gallery_tracks[j][2]
+            c1 = query_tracks[i][1]
+            c2 = gallery_tracks[j][1]
+            score = track_score(camera_delta_s, c1, time1, c2, time2, interval = interval, filter_interval = filter)
+            # if(score != -1.0):
+            #     sts_score[i][j] = score
+            st_scores.append(score)
+        sts_scores.append(st_scores)
 
-            else:
-                score = track_score(camera_delta_s, c1, time1, c2, time2,interval=interval,filter_interval=50000)
-                # 给定摄像头，时间，获取时空评分，这里camera_deltas如果是随机算出来的，则是随机评分
-                # if 'market_market' in predict_path:
-                #     score = track_score(camera_delta_s, c1, time1, c2, time2, interval=100, filter_interval=10000)
-                # elif '_market' in predict_path:
-                #     score = track_score(camera_delta_s, c1, time1, c2, time2, interval=25, filter_interval=40000) #700 ，40000
-                # elif '_dukequerytail' in predict_path:
-                #     score = track_score(camera_delta_s, c1, time1, c2, time2, interval=fusion_param['window_interval'], moving_st=True, filter_interval=fusion_param['filter_interval'])
-                # elif '_duke' in predict_path:
-                #     score = track_score(camera_delta_s, c1, time1, c2, time2, interval=50, filter_interval=50000)
-                # elif '_msmt' in predict_path:
-                #     score = track_score(camera_delta_s, c1, time1, c2, time2, interval=50, filter_interval=50000)
-                # else:
-                #     score = track_score(camera_delta_s, c1, time1, c2, time2)
-            person_deltas_score[i] = score
-        probe_i += 1
-        persons_deltas_score.append(person_deltas_score)
-
-    return persons_deltas_score
+    return sts_scores
 
 
 
-def fusion_st_gallery_ranker(fusion_param,dataset='market1501',data_path='/hdd/sdb/zyb/TFusion/SpCL/data',interval=50):
-    ep = fusion_param['ep']
-    en = fusion_param['en']
+def fusion_st_gallery_ranker(fusion_param, source = 'DukeMTMC-reID', target = 'market',data_path='/hdd/sdb/zyb/TFusion/SpCL/data',interval=50, scores=None, gscores=None, qgindexs=None, ggindexs=None):
+    # ep = fusion_param['ep']
+    # en = fusion_param['en']
     #print('ep:{}\t en:{}'.format(ep,en))
-    log_path = fusion_param['eval_fusion_path']
-    map_score_path = fusion_param['fusion_normal_score_path']  # fusion_param = get_fusion_param()
+    # log_path = fusion_param['eval_fusion_path']
+    # map_score_path = fusion_param['fusion_normal_score_path']  # fusion_param = get_fusion_param()
     
-    dataset = get_data(dataset,data_path)
-    query = dataset.query
-    gallery = dataset.gallery
+    dataset = get_data(source, target, data_path)
+    query = dataset.target_query
+    gallery = dataset.target_gallery
+
     query_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in query]
-    # print('query_tracks[0]:{}'.format(query_tracks[0]))
-
     gallery_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in gallery]
-    # print('garelly_tracks[0]:{}'.format(gallery_tracks[0]))
-    # answer path is probe path
-    # answer_path = fusion_param['answer_path']
-    # answer_lines = read_lines(answer_path)
-    # query_tracks = list()
-    # for answer in answer_lines:
-    #    info = answer.split('_')
-    #    if 'bmp' in info[2]:
-    #        info[2] = info[2].split('.')[0]
-    #    if len(info) > 4 and 'jpe' in info[6]:
-    #        query_tracks.append([info[0], int(info[1][0]), int(info[2])])
-    #    elif 'f' in info[2]:
-    #        query_tracks.append([info[0], int(info[1][1]), int(info[2][1:-5]), 1])
-    #    else:
-    #        query_tracks.append([info[0], int(info[1][1]), int(info[2]), int(info[1][3])])
-
-    # gallery_path = fusion_param['gallery_path']
-    # gallery_lines = read_lines(gallery_path)
-    # gallery_tracks = list()
-    # for gallery in gallery_lines:
-        # info = gallery.split('_')
-        # if 'bmp' in info[2]:
-        #     info[2] = info[2].split('.')[0]
-        # if len(info) > 4 and 'jpe' in info[6]:
-        #     gallery_tracks.append([info[0], int(info[1][0]), int(info[2])])
-        # elif 'f' in info[2]:
-        #     gallery_tracks.append([info[0], int(info[1][1]), int(info[2][1:-5]), 1])
-        # else:
-        #     gallery_tracks.append([info[0], int(info[1][1]), int(info[2]), int(info[1][3])])
-
+    len_query = len(query_tracks)
+    len_gallery = len(gallery_tracks)
     print('probe and gallery tracks ready')
-    persons_ap_scores = predict_img_scores(fusion_param)
-    persons_ap_pids = predict_pids(fusion_param)
-    print('read vision scores and pids ready')
-    if 'market_market' in log_path:
-        scale = 10
-    else:
-        scale = 3 # 1.5 for direct fusion
-    if True:
+    # persons_ap_scores = predict_img_scores(fusion_param)
+    # persons_ap_scores = scores
+    # persons_gg_scores = gscores
+    # persons_ap_pids = predict_pids(fusion_param)
+    # print('read vision scores and pids ready')
     # if 'market_market' in log_path:
-        for i, person_ap_scores in enumerate(persons_ap_scores):
-            cur_max_vision = max(person_ap_scores)
-            cur_min_vision = min(person_ap_scores)
-            persons_ap_scores[i] = (persons_ap_scores[i] - cur_min_vision) / (cur_max_vision - cur_min_vision)
-            persons_ap_scores[i] = np.exp(persons_ap_scores[i] * scale)
-            cur_max_vision = max(persons_ap_scores[i])
-            cur_min_vision = min(persons_ap_scores[i])
-            persons_ap_scores[i] = (persons_ap_scores[i] - cur_min_vision) / (cur_max_vision - cur_min_vision)
+    #     scale = 10
+    # else:
+    scale = 3 # 1.5 for direct fusion
+    
+    # for i, person_ap_scores in enumerate(persons_ap_scores):
+    #     cur_max_vision = max(person_ap_scores)
+    #     cur_min_vision = min(person_ap_scores)
+    #     persons_ap_scores[i] = (persons_ap_scores[i] - cur_min_vision) / (cur_max_vision - cur_min_vision)
+    #     persons_ap_scores[i] = np.exp(persons_ap_scores[i] * scale)
+    #     cur_max_vision = max(persons_ap_scores[i])
+    #     cur_min_vision = min(persons_ap_scores[i])
+    #     persons_ap_scores[i] = (persons_ap_scores[i] - cur_min_vision) / (cur_max_vision - cur_min_vision)
+    
+    # for i, person_gg_scores in enumerate(persons_gg_scores):
+    #     cur_max_vision = max(person_gg_scores)
+    #     cur_min_vision = min(person_gg_scores)
+    #     persons_gg_scores[i] = (persons_gg_scores[i] - cur_min_vision) / (cur_max_vision - cur_min_vision)
+    #     persons_gg_scores[i] = np.exp(persons_gg_scores[i] * scale)
+    #     cur_max_vision = max(persons_gg_scores[i])
+    #     cur_min_vision = min(persons_gg_scores[i])
+    #     persons_gg_scores[i] = (persons_gg_scores[i] - cur_min_vision) / (cur_max_vision - cur_min_vision)
 
 
     camera_delta_s = pickle_load(fusion_param['distribution_pickle_path'])  #获得同一行人在不同摄像头之间迁移的时间差
     # camera_delta_s = pickle_load('true_market_probe.pck')
     print('load track deltas ready')
-    rand_delta_s = pickle_load(fusion_param['rand_distribution_pickle_path'])
-    print('load rand deltas ready')
-    diff_delta_s = pickle_load(fusion_param['rand_distribution_pickle_path'].replace('rand', 'diff'))
-    print('load diff deltas ready')
-    # todo tmp diff deltas
-    # diff_delta_s = rand_delta_s
-    rand_track_scores = gallery_track_scores(query_tracks, gallery_tracks, rand_delta_s, fusion_param, smooth=False,interval=interval)
-    print('rand scores ready')
-    smooth = '_grid' in log_path
+    # rand_delta_s = pickle_load(fusion_param['rand_distribution_pickle_path'])
+    # print('load rand deltas ready')
+    # diff_delta_s = pickle_load(fusion_param['rand_distribution_pickle_path'].replace('rand', 'diff'))
+    # print('load diff deltas ready')
+    # # todo tmp diff deltas
+    # # diff_delta_s = rand_delta_s
+    # rand_track_scores = gallery_track_scores(query_tracks, gallery_tracks, rand_delta_s, fusion_param, smooth=False,interval=interval)
+    # rand_gg_scores = gallery_track_scores(gallery_tracks, gallery_tracks, rand_delta_s, fusion_param, smooth=False,interval=interval)
+    # print('rand scores ready')
+    # smooth = '_grid' in log_path
     # smooth = True
-    persons_track_scores = gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, fusion_param, smooth=smooth,interval=interval)
+    if target == 'msmt17':
+        persons_track_scores = gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, qgindexs, fusion_param, smooth=False, interval=interval, filter=1000)
+        gg_track_scores = gallery_track_scores(gallery_tracks, gallery_tracks, camera_delta_s, ggindexs, fusion_param, smooth=False, interval=interval, filter=1000)
+    else:
+        persons_track_scores = gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, qgindexs, fusion_param, smooth=False,interval=interval)
+        gg_track_scores = gallery_track_scores(gallery_tracks, gallery_tracks, camera_delta_s, ggindexs, fusion_param, smooth=False,interval=interval)
+    
+    persons_track_scores = np.array(persons_track_scores, dtype=np.float16)
+    gg_track_scores = np.array(gg_track_scores, dtype=np.float16)
     print('track scores ready')
+    return persons_track_scores, gg_track_scores
+
     # diff_track_scores = gallery_track_scores(query_tracks, gallery_tracks, diff_delta_s, fusion_param, smooth=smooth)
-    print('diff track score ready')
+    # print('diff track score ready')
     # todo tmp diff scores
-    diff_track_scores = rand_track_scores
+    # diff_track_scores = rand_track_scores
 
     persons_cross_scores = list()
-    safe_remove(map_score_path)
-    safe_remove(log_path)
+    persons_cross_gg_scores = list()
+    # safe_remove(map_score_path)
+    # safe_remove(log_path)
 
     # fusion_track_scores = np.zeros([len(persons_ap_pids), len(persons_ap_pids[0])])
     # for i, person_ap_pids in enumerate(persons_ap_pids):
@@ -510,11 +481,12 @@ def fusion_st_gallery_ranker(fusion_param,dataset='market1501',data_path='/hdd/s
 
     min_rand = 1e-3 # 0.00002
     # min_rand = 2e-5 # 0.00002
-    if 'market_market' in log_path:
-        min_rand = 1e-2  # 0.00002
-    for i, person_ap_pids in enumerate(persons_ap_pids):
+    # if 'market_market' in log_path:
+    #     min_rand = 1e-2  # 0.00002
+    
+    for i in range(len_query):
         cross_scores = list()
-        for j, person_ap_pid in enumerate(person_ap_pids):
+        for j in range(len_gallery):
             cur_track_score = persons_track_scores[i][j]
             rand_track_score = rand_track_scores[i][j]
             if rand_track_score <  0:
@@ -524,15 +496,39 @@ def fusion_st_gallery_ranker(fusion_param,dataset='market1501',data_path='/hdd/s
                 if cur_track_score != 0:
                     cur_track_score = -1
 
-            cross_score = (cur_track_score * (1 - ep) - en * diff_track_scores[i][j]) * (
-                persons_ap_scores[i][j] + ep / (1 - ep - en)) / rand_track_score
+            cross_score = (cur_track_score * persons_ap_scores[i][j]) / rand_track_score
+            # if i <= 3 and j < 30:
+            #     print(cur_track_score, persons_ap_scores[i][j], rand_track_score, cross_score)
             if cur_track_score > 0 and cross_score < 0:
                 cross_score = 0
             cross_scores.append(cross_score)
-        if max(cross_scores) == 0:
-            print('max cross scores %d is 0' % i)
+        # if max(cross_scores) == 0:
+        #     print('max cross scores %d is 0' % i)
         persons_cross_scores.append(cross_scores)
     print('fusion scores ready')
+
+    for i in range(len_gallery):
+        cross_scores = list()
+        for j in range(len_gallery):
+            cur_track_score = gg_track_scores[i][j]
+            rand_track_score = rand_gg_scores[i][j]
+            if rand_track_score <  0:
+                rand_track_score =min_rand
+            elif rand_track_score < min_rand:
+                rand_track_score = min_rand
+                if cur_track_score != 0:
+                    cur_track_score = -1
+
+            cross_score = (cur_track_score * persons_gg_scores[i][j]) / rand_track_score
+            # if i <= 3 and j < 30:
+            #     print(cur_track_score, persons_ap_scores[i][j], rand_track_score, cross_score)
+            if cur_track_score > 0 and cross_score < 0:
+                cross_score = 0
+            cross_scores.append(cross_score)
+        # if max(cross_scores) == 0:
+        #     print('max cross scores %d is 0' % i)
+        persons_cross_gg_scores.append(cross_scores)
+    print('fusion gg scores ready')
         # pickle_save(ctrl_msg['data_folder_path']+'viper_r-testpersons_cross_scores.pick', persons_cross_scores)
         # pickle_save(ctrl_msg['data_folder_path']+'viper_r-testpersons_ap_pids.pick', persons_ap_pids)
 
@@ -558,31 +554,67 @@ def fusion_st_gallery_ranker(fusion_param,dataset='market1501',data_path='/hdd/s
             if i == 0 and j % 100 == 0:
                 print('track: %f vision: %f rand: %f final: %f' % (
                 persons_track_scores[i][j],  persons_ap_scores[i][j], rand_track_scores[i][j], persons_cross_scores[i][j]))
-
+    
     print('fusion scores normalized, diff seq use vision score to rank')
-    person_score_idx_s = list()
+    
+    max_score_s = [max(predict_cross_scores) for predict_cross_scores in persons_cross_gg_scores]
+    for i, person_cross_scores in enumerate(persons_cross_gg_scores):
+        for j, person_cross_score in enumerate(persons_cross_gg_scores):
+            if persons_cross_gg_scores[i][j] >= 0:
+                # diff seq not sort, not rank for max, and not normalize
+                if max_score_s[i] != 0:
+                    persons_cross_gg_scores[i][j] /= max_score_s[i]
+            else:
+                persons_cross_gg_scores[i][j] *= -1 * min_rand
+            if i == 0 and j % 100 == 0:
+                print('track: %f vision: %f rand: %f final: %f' % (
+                gg_track_scores[i][j],  persons_gg_scores[i][j], rand_gg_scores[i][j], persons_cross_gg_scores[i][j]))
+    
+    persons_cross_scores = np.array(persons_cross_scores, dtype=np.float32)
+    persons_cross_gg_scores = np.array(persons_cross_gg_scores, dtype=np.float32)
+    print('fusion gg scores normalized, diff seq use vision score to rank')
+    # person_score_idx_s = list()
 
-    for i, person_cross_scores in enumerate(persons_cross_scores):
-        # 单个probe的预测结果中按score排序，得到index，用于对pid进行排序
-        sort_score_idx_s = sorted(range(len(person_cross_scores)), key=lambda k: -person_cross_scores[k])
-        person_score_idx_s.append(sort_score_idx_s)
-    sorted_persons_ap_pids = np.zeros([len(persons_ap_pids), len(persons_ap_pids[0])])
-    sorted_persons_ap_scores = np.zeros([len(persons_ap_pids), len(persons_ap_pids[0])])
-    for i, person_ap_pids in enumerate(persons_ap_pids):
-        for j in range(len(person_ap_pids)):
-            sorted_persons_ap_pids[i][j] = persons_ap_pids[i][person_score_idx_s[i][j]]
-            sorted_persons_ap_scores[i][j] = persons_cross_scores[i][person_score_idx_s[i][j]]
-    print('sorted scores ready')
-    np.savetxt(log_path, sorted_persons_ap_pids, fmt='%d')
-    np.savetxt(map_score_path, sorted_persons_ap_scores, fmt='%f')
-    print('save sorted fusion scores')
+    # for i, person_cross_scores in enumerate(persons_cross_scores):
+    #     # 单个probe的预测结果中按score排序，得到index，用于对pid进行排序
+    #     sort_score_idx_s = sorted(range(len(person_cross_scores)), key=lambda k: -person_cross_scores[k])
+    #     person_score_idx_s.append(sort_score_idx_s)
+    # # sorted_persons_ap_pids = np.zeros([len_query, len_gallery])
+    # # sorted_persons_ap_pids = np.array(person_score_idx_s, dtype=np.int32)
+    # sorted_persons_ap_scores = np.zeros([len_query, len_gallery], dtype=np.float32)
+    # for i in range(len_query):
+    #     for j in range(len_gallery):
+    #         # sorted_persons_ap_pids[i][j] = persons_ap_pids[i][person_score_idx_s[i][j]]
+    #         # sorted_persons_ap_pids[i][j] = person_score_idx_s[i][j]
+    #         sorted_persons_ap_scores[i][j] = persons_cross_scores[i][person_score_idx_s[i][j]]
+    
+    # Testing
+    # query_ids = np.asarray([pid for _, pid, _,_,_ in query])
+    # gallery_ids = np.asarray([pid for _, pid, _ ,_,_ in gallery])
+    # query_cams = np.asarray([cam for _, _, cam,_,_ in query])
+    # gallery_cams = np.asarray([cam for _, _, cam,_,_ in gallery])
+
+    # # mAP = mean_ap2(sorted_persons_ap_scores, person_score_idx_s, query_ids, gallery_ids, query_cams, gallery_cams)
+    # mAP, all_cmc = map_cmc(-persons_cross_scores, query_ids, gallery_ids, query_cams, gallery_cams)
+    # print('Mean AP: {:4.1%}'.format(mAP))
+    # print('CMC Scores')
+    # for k in (1, 5, 10):
+    #     print('  top-{:<4}{:12.1%}'
+    #           .format(k, all_cmc[k - 1]))
+
+
+    # print('sorted scores ready')
+    # np.savetxt(log_path, sorted_persons_ap_pids, fmt='%d')
+    # np.savetxt(map_score_path, sorted_persons_ap_scores, fmt='%f')
+    # print('save sorted fusion scores')
+
     # for i, person_ap_pids in enumerate(persons_ap_pids):
     #     for j in range(len(person_ap_pids)):
     #         write(log_path, '%d ' % person_ap_pids[person_score_idx_s[i][j]])
     #         write(map_score_path, '%.3f ' % persons_cross_scores[i][person_score_idx_s[i][j]])
     #     write(log_path, '\n')
     #     write(map_score_path, '\n')
-    return person_score_idx_s
+    return persons_cross_scores, persons_cross_gg_scores
 
 
 def simple_fusion_st_gallery_ranker(fusion_param,dataset='market1501',data_path='/hdd/sdb/zyb/TFusion/SpCL/data',interval=50):

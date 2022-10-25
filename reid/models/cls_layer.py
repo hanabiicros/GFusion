@@ -40,6 +40,7 @@ class OldClsTarget(nn.Module):
             in_dim = in_dim
         else:
             in_dim = 2048
+            # in_dim = 384
 
         # hyper parameter
         self.use_single = False
@@ -79,7 +80,7 @@ class OldClsTarget(nn.Module):
             # hyper parameter
             if self.use_single:
                 labels = labels / (torch.max(labels, dim=1, keepdim=True)[0] + 1e-20)
-                outputs = Proxy_table(self.em_all, alpha=alpha)(x, img_index)
+                outputs = Proxy_table.apply(x, img_index, self.em_all, alpha)
                 outputs = outputs / self.t_beta
                 outputs = F.log_softmax(outputs, dim=1)
                 loss = (-(labels*outputs)).sum(1).mean(0)

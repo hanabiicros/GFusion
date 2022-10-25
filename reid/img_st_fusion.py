@@ -37,21 +37,21 @@ def build_param(opt):
     # fusion_param.ctrl_msg['en'] = opt.en
     # fusion_param.ctrl_msg['window_interval'] = opt.window_interval
     # fusion_param.ctrl_msg['filter_interval'] = opt.filter_interval
-    working_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
-    source_dir = os.path.join(working_dir, opt.eval_dir)
-    param = get_fusion_param()
-    safe_link(source_dir + '-train/pid.txt', param['renew_pid_path'])
-    # safe_link(opt.vision_folder_path + '/score.txt', param['renew_ac_path'])
-    # fusion_param.ctrl_msg['data_folder_path'] = opt.data_folder_path.replace('train', 'test')
+    # working_dir = os.path.abspath(os.path.dirname(os.path.dirname(__file__)))
+    # source_dir = os.path.join(working_dir, opt.eval_dir)
     # param = get_fusion_param()
-    # safe_link(opt.vision_folder_path.replace('train', 'test') + '/pid.txt', param['renew_pid_path'])
-    # safe_link(opt.vision_folder_path.replace('train', 'test') + '/score.txt', param['renew_ac_path'])
-    # fusion_param.ctrl_msg['data_folder_path'] = opt.data_folder_path
+    # safe_link(source_dir + '-train/pid.txt', param['renew_pid_path'])
+    # safe_link(source_dir + '-train/score.txt', param['renew_ac_path'])
+    # fusion_param.ctrl_msg['data_folder_path'] = opt.source + '_' + opt.target + '-test'
+    # param = get_fusion_param()
+    # # safe_link(source_dir + '-test/pid.txt', param['renew_pid_path'])
+    # # safe_link(source_dir + '-test/score.txt', param['renew_ac_path'])
+    # fusion_param.ctrl_msg['data_folder_path'] = opt.source + '_' + opt.target + '-train'
 
-def stmain(sim, opt):
+def stmain(opt, indexs, scores=None, gscores=None, qgindexs=None, ggindexs=None, flag=True):
     # opt = arg_parse()
     build_param(opt)
-    return init_strict_img_st_fusion(opt, sim)
+    return init_strict_img_st_fusion(opt, indexs, scores, gscores, qgindexs, ggindexs, flag)
 
 if __name__ == '__main__':
     stmain()

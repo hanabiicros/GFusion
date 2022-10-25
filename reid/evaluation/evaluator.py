@@ -8,8 +8,9 @@ import os
 import scipy.io as sci
 from sklearn.metrics import euclidean_distances
 from sklearn.metrics.pairwise import cosine_similarity
+import scipy.sparse as sp
 
-from reid.evaluation.ranking import cmc, mean_ap, map_cmc
+from reid.evaluation.ranking import cmc, mean_ap, mean_ap2, map_cmc
 from reid.evaluation.meters import AverageMeter
 from reid.lib.serialization import to_torch, mkdir_if_missing
 
@@ -95,13 +96,12 @@ def pairwise_distance(query_features, gallery_features, query=None, gallery=None
     dist = get_gause_sim(x.numpy(), y.numpy(), delta=1.)
     print(dist[0, :5])
 
-    return dist
+    return dist, x.numpy(), y.numpy()
 
-
-def evaluate_all(distmat, query=None, gallery=None,
+def evaluate_all(query_features, gallery_features, distmat, query=None, gallery=None,
                  query_ids=None, gallery_ids=None,
                  query_cams=None, gallery_cams=None,
-                 cmc_topk=(1, 5, 10, 20)):
+                 cmc_topk=(1, 5, 10)):
     if query is not None and gallery is not None:
         query_ids = [pid for _, pid, _,_,_ in query]
         gallery_ids = [pid for _, pid, _,_,_ in gallery]
@@ -111,6 +111,51 @@ def evaluate_all(distmat, query=None, gallery=None,
         assert (query_ids is not None and gallery_ids is not None
                 and query_cams is not None and gallery_cams is not None)
 
+    query_features = torch.FloatTensor(query_features)
+    gallery_features = torch.FloatTensor(gallery_features)
+    CMC = torch.IntTensor(len(gallery_ids)).zero_()
+    ap = 0.0
+    scores, indexs = [], []
+    gscores, gindexs = [], []
+
+    for i in range(len(gallery_ids)):
+        query = gallery_features[i].view(-1,1) 
+        gscore = torch.mm(gallery_features,query) 
+        gscore = gscore.squeeze(1).cpu()
+        gscore = gscore.numpy()
+        # predict index
+        index = np.argsort(-gscore)[:100]  #from small to large
+        # index = index[::-1]
+        gscore = gscore[index]
+        gindexs.append(index)
+        gscores.append(gscore)
+
+    for i in range(len(query_ids)):
+        query = query_features[i].view(-1,1) 
+        score = torch.mm(gallery_features,query) 
+        score = score.squeeze(1).cpu()
+        score = score.numpy()
+        # predict index
+        index = np.argsort(-score)[:5] 
+        # index = index[::-1]
+        score = score[index]
+        indexs.append(index)
+        scores.append(score)
+
+    indexs = np.array(indexs, dtype=np.int32)
+    gindexs = np.array(gindexs, dtype=np.int32)
+    scores = np.array(scores, dtype=np.float16)
+    gscores = np.array(gscores, dtype=np.float16)
+    # scores = sp.coo_matrix(scores, dtype=np.float16)
+    # gscores = sp.coo_matrix(gscores, dtype=np.float16)
+
+    # if eval_path is not None:
+    #         mkdir_if_missing(eval_path)
+    # score_path = os.path.join(eval_path, 'score.txt')
+    # pid_path = os.path.join(eval_path, 'pid.txt')
+    # np.savetxt(score_path, scores, fmt='%.4f')
+    # np.savetxt(pid_path, indexs, fmt='%d')
+
     # Evaluation
     mAP, all_cmc = map_cmc(distmat, query_ids, gallery_ids, query_cams, gallery_cams)
     print('Mean AP: {:4.1%}'.format(mAP))
@@ -118,7 +163,7 @@ def evaluate_all(distmat, query=None, gallery=None,
     for k in cmc_topk:
         print('  top-{:<4}{:12.1%}'
               .format(k, all_cmc[k - 1]))
-    return mAP
+    return mAP, scores, gscores, indexs, gindexs, query_features, gallery_features
 
 
 def save_feature(features, fpaths, labels, camids, save_name):
@@ -139,12 +184,12 @@ def sort_by_score(qf,gf):
     score = score.squeeze(1).cpu()
     score = score.numpy()
     # predict index
-    index = np.argsort(score)  #from small to large
-    index = index[::-1]
+    index = np.argsort(-score)[:500]  #from small to large
+    # index = index[::-1]
     score = score[index]
     return index, score
 
-def get_score_pid_on_training(features,train=None,eval_path=None):
+def get_score_pid_on_training(features,train=None):
 
     x = torch.cat([features[f].unsqueeze(0) for f, _, _,_ ,_ in train], 0)
     m = x.size(0)
@@ -163,17 +208,48 @@ def get_score_pid_on_training(features,train=None,eval_path=None):
         indexs.append(index)
 
     # scores = np.array(scores)
-    indexs = np.array(indexs)
+    indexs = np.array(indexs, dtype=np.int32)
     #transfer_name = opt.name + '_' + target + '-train'
 
-    if eval_path is not None:
-            mkdir_if_missing(eval_path)
+    return indexs
+    # if eval_path is not None:
+    #         mkdir_if_missing(eval_path)
     # score_path = os.path.join(eval_path, 'score.txt')
-    pid_path = os.path.join(eval_path, 'pid.txt')
-    # np.savetxt(score_path, scores, fmt='%.4f')
-    np.savetxt(pid_path, indexs, fmt='%d')
+    # pid_path = os.path.join(eval_path, 'pid.txt')
+    # # np.savetxt(score_path, scores, fmt='%.4f')
+    # np.savetxt(pid_path, indexs, fmt='%d')
     # result = {'ft': train_features.numpy()}
     # sci.savemat(os.path.join(eval_path, 'train_ft.mat'),result)
+
+def result_eval(predict_path, score_path ,query=None, gallery=None):
+    res = np.genfromtxt(predict_path, delimiter=' ',dtype = np.int32)
+    score = np.genfromtxt(score_path, delimiter=' ',dtype = np.float32)
+    print('predict info get, extract gallery info start')
+
+    query_ids = np.asarray([pid for _, pid, _,_,_ in query])
+    gallery_ids = np.asarray([pid for _, pid, _ ,_,_ in gallery])
+    query_cams = np.asarray([cam for _, _, cam,_,_ in query])
+    gallery_cams = np.asarray([cam for _, _, cam,_,_ in gallery])
+
+    # distmat = re_ranking(qf, gf, k1=20, k2=6, lambda_value=0.3)
+    # cmc1, mAP1 = eval_func(distmat, q_pids, g_pids, q_camids, g_camids)
+    # print('3971:{}\t 14054:{}\t 9594:{}\t 9738:{}\t 2394:{}\t 8208:{}\t 4036:{}\t 4610:{}\t 14855:{}\t 8173:{}'.format(gallery_ids[3971],
+    # gallery_ids[14054],gallery_ids[9594],gallery_ids[9738],gallery_ids[2394],gallery_ids[8208],gallery_ids[4036],gallery_ids[4610],gallery_ids[14855],gallery_ids[8173]))
+    mAP = mean_ap2(score, res, query_ids, gallery_ids, query_cams, gallery_cams)
+    print('Mean AP: {:4.1%}'.format(mAP))
+    
+    cmc_configs = {
+        'market1501': dict(separate_camera_set=False,
+                           single_gallery_shot=False,
+                           first_match_break=True),}
+    cmc_scores = {name: cmc(score, res, query_ids, gallery_ids,
+                            query_cams, gallery_cams, **params)
+                  for name, params in cmc_configs.items()}
+
+    cmc_topk=(1, 5, 10)
+    print('CMC Scores:')
+    for k in cmc_topk:
+        print('  top-{:<4}{:12.1%}'.format(k, cmc_scores['market1501'][k-1]))
 
 class Evaluator(object):
     def __init__(self, backbone):
@@ -186,9 +262,9 @@ class Evaluator(object):
     def evaluate(self, query_loader, gallery_loader, query, gallery):
         query_features, _ = extract_features(self.backbone, query_loader)
         gallery_features, _ = extract_features(self.backbone, gallery_loader)
-        distmat = pairwise_distance(query_features, gallery_features, query, gallery)
+        distmat, query_features, gallery_features = pairwise_distance(query_features, gallery_features, query, gallery)
 
-        return evaluate_all(distmat, query=query, gallery=gallery)
+        return evaluate_all(query_features, gallery_features, distmat, query=query, gallery=gallery)
 
     def extract_tgt_train_features(self, train_loader, save_name=None, layer=None):
         features, paths, labels, camids = [], [], [], []
@@ -204,16 +280,27 @@ class Evaluator(object):
         if save_name:
             save_feature(features, fpaths, labels, camids, save_name)
         return features, fpaths, labels, camids
-    
-    def transfer(self, data_loader, train,eval_path):
+
+    def evaluate_fusion(self, query, gallery,fusion_path):
         start_time = time.monotonic()
-        eval_path = eval_path + '-train'
+
+        predict_path = os.path.join(fusion_path,'cross_filter_pid.log')
+        score_path = os.path.join(fusion_path,'cross_filter_score.log')
+        # log_path = '/home/zyb/projects/TFusion/SpCL/eval_result.txt'
+        result_eval(predict_path,score_path,query,gallery)
+
+        end_time = time.monotonic()
+        print('evaluate_on_fusion_time : {}'.format(end_time - start_time))
+
+    def transfer(self, data_loader, train):
+        start_time = time.monotonic()
         features, _ = extract_features(self.backbone, data_loader)
         
-        get_score_pid_on_training(features,train,eval_path)
+        indexs = get_score_pid_on_training(features,train)
         # results = evaluate_market1501(query_features, gallery_features, distmat, query=query, gallery=gallery, cmc_flag=cmc_flag)
         end_time = time.monotonic()
         print('transfer_time : {}'.format(end_time - start_time))
+        return indexs
 
     @staticmethod
     def extract_pids(data_loader):

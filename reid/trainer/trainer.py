@@ -47,9 +47,11 @@ class Trainer(object):
             x_target, y_pid, y_idx, camids, graph_target = \
                 self.parse_with_graph_target(x_target)
             x_target, x_target_bn = self.backbone(x_target)
+            # x_target_bn = self.backbone(x_target)
             loss = self.cls_layer1(x_target_bn, y_pid, y_idx, camids, graph_target, epoch)
 
             losses.update(loss.item(), x_target.size(0))
+            # losses.update(loss.item(), x_target_bn.size(0))
 
             optimizer.zero_grad()
             loss.backward()

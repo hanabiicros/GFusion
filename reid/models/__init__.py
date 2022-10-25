@@ -1,6 +1,7 @@
 from __future__ import absolute_import
 
 from .resnet import *
+from .vision_transformer import *
 
 __factory = {
     'resnet18': resnet18,
@@ -10,7 +11,8 @@ __factory = {
     'resnet152': resnet152,
     'ibn_resnet50': ibn_resnet50,
     'se_resnet50': se_resnet50,
-    'se_resnext50': se_resnext50
+    'se_resnext50': se_resnext50,
+    'vit_small': vit_small,
 }
 
 
