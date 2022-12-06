@@ -200,7 +200,8 @@ def apply_model(dataCenter, ds, graphSage, classification, unsupervised_loss, b_
 			elif unsup_loss == 'normal':
 				loss_net = unsupervised_loss.get_loss_sage(embs_batch, nodes_batch)
 			loss = loss_net
-
+		if loss == 0:
+			continue
 		print('Step [{}/{}], Loss: {:.4f}, Dealed Nodes [{}/{}] '.format(index+1, batches, loss.item(), len(visited_nodes), len(train_nodes)))
 		loss.backward()
 		for model in models:

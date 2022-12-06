@@ -13,7 +13,7 @@ from reid.dataloaders.dataset import Person
 
 def get_data(source, target, data_dir):
     dataset = Person(data_dir, target, source)
-    return dataset.target_train_real
+    return dataset
 
 def prepare_rand_folder(fusion_param):
     rand_predict_path = fusion_param['renew_pid_path'].replace(ctrl_msg['data_folder_path'],
@@ -47,7 +47,8 @@ def get_predict_pure_delta_tracks(fusion_param, source, target, data_path, usefu
     # 获取左图列表
     # dataset = get_data(source,target,data_path)
     # train = dataset.train
-    train = get_data(source, target, data_path)
+    dataset = get_data(source, target, data_path)
+    train = dataset.target_train_real_s2
     real_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in train]
     if target == 'market':
         print('market')

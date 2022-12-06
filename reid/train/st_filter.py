@@ -68,7 +68,7 @@ def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False
                 s2 = real_tracks[i][3]
                 if s1 != s2:
                     # person_deltas_score.append(-1.0)
-                    sts_score[i][j] = -2
+                    sts_score[i][j] = 0
                     continue
             time1 = real_tracks[j][2]
             # if track_score_idx == 3914:
@@ -77,11 +77,13 @@ def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False
             c1 = real_tracks[j][1]
             c2 = real_tracks[i][1]
             temp = temp + 1 
-            if smooth:
-                # if '_dukequerytail' in predict_path:
-                #     score = track_score(camera_delta_s, c1, time1, c2, time2, interval=500, moving_st=True, filter_interval=50000)
-                # else:
-                score = smooth_score(c1, c2, time1, time2, camera_delta_s)
+            if c1 == c2:
+                sts_score[i][j] = 0
+            # if smooth:
+            #     # if '_dukequerytail' in predict_path:
+            #     #     score = track_score(camera_delta_s, c1, time1, c2, time2, interval=500, moving_st=True, filter_interval=50000)
+            #     # else:
+            #     score = smooth_score(c1, c2, time1, time2, camera_delta_s)
             else:
                 # 给定摄像头，时间，获取时空评分，这里camera_deltas如果是随机算出来的，则是随机评分
                 # todo grid 需要 改区间大小
@@ -95,7 +97,7 @@ def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False
                     # if(probe_i < 10 and temp < 100):
                     #     print("probe_i:{},real_tracks[probe_i]:{},pid4probe:{},real_tracks[pid4probe]:{},sp_score:{}".format(probe_i,real_tracks[probe_i],pid4probe,real_tracks[pid4probe],score))
             # if(score != -1.0):
-            sts_score[i][j] = score
+                sts_score[i][j] = score
         #     person_deltas_score.append(score)
         # probe_i += 1
         # persons_deltas_score.append(person_deltas_score)
@@ -176,7 +178,7 @@ def fusion_st_img_ranker(fusion_param, source = 'DukeMTMC-reID', target = 'marke
     # diff_delta_s = pickle_load(fusion_param['rand_distribution_pickle_path'].replace('rand', 'diff'))
 
     dataset = get_data(source, target, data_path)
-    train = dataset.target_train_real
+    train = dataset.target_train_real_s2
     real_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in train]
     # 计算时空评分和随机时空评分
     print("时空评分计算...")
@@ -363,7 +365,7 @@ def gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, indexs, f
                 s2 = gallery_tracks[j][3]
                 if s1 != s2:
                     # person_deltas_score[i] = -1.0
-                    st_scores.append(-2.0)
+                    st_scores.append(0.)
                     continue
             time1 = query_tracks[i][2]
             # if track_score_idx == 3914:

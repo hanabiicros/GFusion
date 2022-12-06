@@ -128,8 +128,10 @@ class UnsupervisedLoss(object):
 
 			nodes_score.append(torch.max(torch.tensor(0.0).to(self.device), neg_score-pos_score+self.MARGIN).view(1,-1))
 			# nodes_score.append((-pos_score - neg_score).view(1,-1))
-
-		loss = torch.mean(torch.cat(nodes_score, 0),0)
+		if len(nodes_score) == 0:
+			loss = 0
+		else:
+			loss = torch.mean(torch.cat(nodes_score, 0),0)
 
 		# loss = -torch.log(torch.sigmoid(pos_score))-4*torch.log(torch.sigmoid(-neg_score))
 		
@@ -372,8 +374,8 @@ class GraphSage(nn.Module):
 					# mask1[i][unique_nodes[n]] = weight[nodes[i],n]  sparse:weight
 					mask1[i][unique_nodes[n]] = torch.FloatTensor([weight[nodes[i],n]])
 			
-			# b = mask1.sum(dim=1, keepdim=True)
-			mask1 = mask1.to(embed_matrix.device)
+			b = mask1.sum(dim=1, keepdim=True)
+			mask1 = mask1.div(b).to(embed_matrix.device)
 			aggregate_feats = mask1.mm(embed_matrix)
 		# self.dc.logger.info('6')
 		
