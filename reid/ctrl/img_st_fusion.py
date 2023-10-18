@@ -11,7 +11,7 @@ from reid.train.st_filter import fusion_st_img_ranker, fusion_st_gallery_ranker,
 # need to run on src directory
 from reid.utils.file_helper import safe_remove, safe_mkdir
 
-def test_fusion(fusion_param, scores, gscores, qgindexs, ggindexs, opt, ep=0, en=0.01):
+def test_fusion(fusion_param, t_query, t_gallery, qgindexs, ggindexs, opt, ep=0, en=0.01):
     # copy sort pickle
     safe_remove(fusion_param['distribution_pickle_path'])
     try:
@@ -21,32 +21,31 @@ def test_fusion(fusion_param, scores, gscores, qgindexs, ggindexs, opt, ep=0, en
     except shutil.Error:
         print('pickle ready')
     # merge visual probability and track distribution probability
-    if fusion_param['gt_fusion']:
-        simple_fusion_st_gallery_ranker(fusion_param,dataset=opt.target_dataset ,data_path= opt.data_dir,interval=opt.interval)
-    else:
-        return fusion_st_gallery_ranker(fusion_param, source = opt.source, target=opt.target ,data_path= opt.data_dir,interval=opt.interval, scores=scores, gscores=gscores, qgindexs=qgindexs, ggindexs=ggindexs)
+    # if fusion_param['gt_fusion']:
+    #     simple_fusion_st_gallery_ranker(fusion_param,dataset=opt.target_dataset ,data_path= opt.data_dir,interval=opt.interval)
+    # else:
+    return fusion_st_gallery_ranker(fusion_param, t_query, t_gallery, interval=opt.interval, qgindexs=qgindexs, ggindexs=ggindexs)
     # evaluate
 
 
 
 
-def train_fusion(fusion_param, scores, opt, ep=0, en=0):
+def train_fusion(fusion_param, t_train, train_indexs, opt, ep=0, en=0):
     # 这里不需要再做一次时空模型建立
     # get_predict_tracks(fusion_param)
     # get distribution sorted list for probability compute
     # store_sorted_deltas(fusion_param)
-    if fusion_param['gt_fusion']:
-        simple_fusion_st_img_ranker(fusion_param)
-    else:
-        return fusion_st_img_ranker(fusion_param, source = opt.source, target=opt.target, data_path= opt.data_dir, interval=opt.interval, scores=scores)
+    # if fusion_param['gt_fusion']:
+    #     simple_fusion_st_img_ranker(fusion_param)
+    # else:
+    return fusion_st_img_ranker(fusion_param, t_train, train_indexs, interval=opt.interval)
 
 
-def init_strict_img_st_fusion(opt, indexs, scores, gscores, qgindexs, ggindexs, flag):
+def init_strict_img_st_fusion(opt, indexs, t_train, t_query, t_gallery, train_indexs, qgindexs, ggindexs, flag):
     # 全局调度入口，会同时做训练集和测试集上的融合与评分
     fusion_param = get_fusion_param()
     safe_mkdir('data/' + ctrl_msg['data_folder_path'])
-    get_predict_delta_tracks(fusion_param, source = opt.source, target=opt.target, data_path= opt.data_dir, useful_predict_limit = opt.useful_cnt, use_real_st=fusion_param['gt_fusion'], indexs=indexs)
-
+    get_predict_delta_tracks(fusion_param, target=opt.target, t_train = t_train, use_real_st=fusion_param['gt_fusion'], indexs=indexs)
     # only get rand model for train dataset
     # prepare_rand_folder(fusion_param)
     # prepare_diff_folder(fusion_param)
@@ -54,7 +53,7 @@ def init_strict_img_st_fusion(opt, indexs, scores, gscores, qgindexs, ggindexs, 
     # ctrl_msg['data_folder_path'] = ctrl_msg['data_folder_path'] + '_rand'
     # fusion_param = get_fusion_param()
     # # # 生成随机时空点的时空模型
-    # get_predict_delta_tracks(fusion_param, source = opt.source, target=opt.target, data_path= opt.data_dir, useful_predict_limit = opt.useful_cnt, random=True, indexs=indexs)
+    # get_predict_delta_tracks(fusion_param, source = opt.source, target=opt.target, data_path= opt.data_dir, useful_predict_limit = opt.kt, random=True, indexs=indexs)
 
     # # #ctrl_msg['data_folder_path'] = ctrl_msg['data_folder_path'].replace('rand', 'diff')
     # # #fusion_param = get_fusion_param()
@@ -66,13 +65,13 @@ def init_strict_img_st_fusion(opt, indexs, scores, gscores, qgindexs, ggindexs, 
     # has prepared more accurate ep, en
     if flag:
         print('fusion on training dataset')
-        return iter_strict_img_st_fusion(on_test=False, scores=scores, opt=opt)
+        return iter_strict_img_st_fusion(on_test=False, t_train=t_train, train_indexs=train_indexs, opt=opt)
     else:
         # # # 改成测试目录
         print('fusion on test dataset')
         ctrl_msg['data_folder_path'] = ctrl_msg['data_folder_path'][:-4] + 'est'
         safe_mkdir('data/' + ctrl_msg['data_folder_path'])
-        return iter_strict_img_st_fusion(on_test=True, scores=scores, gscores=gscores, qgindexs=qgindexs, ggindexs=ggindexs, opt=opt)
+        return iter_strict_img_st_fusion(on_test=True, t_query=t_query, t_gallery=t_gallery, qgindexs=qgindexs, ggindexs=ggindexs, opt=opt)
 
 
 # def init_strict_img_st_fusion():
@@ -104,7 +103,7 @@ def init_strict_img_st_fusion(opt, indexs, scores, gscores, qgindexs, ggindexs, 
 #     iter_strict_img_st_fusion(on_test=True)
 
 
-def iter_strict_img_st_fusion(on_test=False, scores=None, gscores=None, qgindexs=None, ggindexs=None, opt=None):
+def iter_strict_img_st_fusion(on_test=False, t_train=None, t_query=None, t_gallery=None, train_indexs=None, qgindexs=None, ggindexs=None, opt=None):
     """
     call after img classifier update, train with new vision score and ep en
     :param on_test:
@@ -113,9 +112,9 @@ def iter_strict_img_st_fusion(on_test=False, scores=None, gscores=None, qgindexs
     fusion_param = get_fusion_param()
     # ep, en = get_shot_rate()
     if on_test:
-        return test_fusion(fusion_param, scores=scores, gscores=gscores, qgindexs=qgindexs, ggindexs=ggindexs, opt=opt)
+        return test_fusion(fusion_param, t_query=t_query, t_gallery=t_gallery, qgindexs=qgindexs, ggindexs=ggindexs, opt=opt)
     else:
-        return train_fusion(fusion_param, scores=scores, opt = opt)
+        return train_fusion(fusion_param, t_train=t_train, train_indexs=train_indexs, opt = opt)
         # update_epen(fusion_param, True)
 
 

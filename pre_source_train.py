@@ -27,12 +27,12 @@ start_epoch = best_mAP = 0
 
 def get_data(opt, source, target, iters=200):
 
-    dataset = Person(opt.data_dir, target, source)
-    s_pids = dataset.s_train_pids
-    s_train = dataset.source_train
-    s_query = dataset.source_query
-    s_gallery = dataset.source_gallery
-    t_train_real = dataset.target_train_real
+    dataset = Person(opt.data_dir, source, target)
+    s_pids = dataset.t_train_pids
+    s_train = dataset.target_train_real
+    s_query = dataset.target_query
+    s_gallery = dataset.target_gallery
+    t_train_real = dataset.source_train
 
     height, width = opt.height, opt.width
     batch_size, workers = opt.batch_size, opt.workers
@@ -196,7 +196,7 @@ def main_worker(args):
         lr_scheduler.step()
         if ((epoch+1)%args.eval_step==0 or (epoch==args.epochs-1)):
 
-            mAP = evaluator.evaluate(s_query_loader, s_gallery_loader, s_query, s_gallery)
+            mAP, _, _, _, _, _, _, _ = evaluator.evaluate(s_query_loader, s_gallery_loader, s_query, s_gallery)
 
             is_best = mAP > best_mAP
             best_mAP = max(mAP, best_mAP)

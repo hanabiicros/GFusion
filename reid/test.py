@@ -9,13 +9,140 @@ import pynvml
 import sys
 from sklearn.metrics import euclidean_distances
 import torch.nn.functional as F
+import pickle
+from matplotlib import pyplot as plt
+import numpy as np
+import seaborn as sns
+from scipy.interpolate import make_interp_spline
+from random import sample
+# 直方图
+from scipy.stats import norm #使用直方图和最大似然高斯分布拟合绘制分布
 
-pynvml.nvmlInit()
+# mi = -50000
+# ma = 50000
+# step = 1
+# deltas = pickle.load(open("/home/zyb/projects/HGO_v2/data/DukeMTMC-reID_market-train/sorted_false_cam1_cam2_deltas.pickle", 'rb'))
+# xx = list(range(mi,ma,step))
+# # for i in range(len(xx)):
+# #     xx[i] = xx[i]/10
+# y1 = []
+# y2 = []
+# y3 = []
+# y4 = []
+# y5 = []
+# x1 = deltas[0][1]
+# x1 = [x for x in x1 if x >= mi and x <= ma]
+# x2 = deltas[0][2]
+# x2 = [x for x in x2 if x >= mi-25 and x <= ma+25]
+# x3 = deltas[0][3]
+# x3 = [x for x in x3 if x >= mi-25 and x <= ma+25]
+# x4 = deltas[0][4]
+# x4 = [x for x in x4 if x >= mi-25 and x <= ma+25]
+# x5 = deltas[0][5]
+# x5 = [x for x in x5 if x >= mi-25 and x <= ma+25]
 
-a = [0,1,2,0,5]
-a = np.array(a)
-b = np.nonzero(a)
-print(b[0])
+# for i in xx:
+#     x1_1 = [x for x in x1 if x >= i-25 and x <= i+25]
+#     x2_1 = [x for x in x2 if x >= i-25 and x <= i+25]
+#     x3_1 = [x for x in x3 if x >= i-25 and x <= i+25]
+#     x4_1 = [x for x in x4 if x >= i-25 and x <= i+25]
+#     x5_1 = [x for x in x5 if x >= i-25 and x <= i+25]
+#     y1.append(len(x1_1))
+#     y2.append(len(x2_1))
+#     y3.append(len(x3_1))
+#     y4.append(len(x4_1))
+#     y5.append(len(x5_1))
+
+# x1 = sample(x1,63)
+# sns.kdeplot(data=x1,label='cam 1-2',color='#cc0000', linewidth = 3,linestyle=(0,(5,10)))
+
+# plt.plot(xx,y1,marker = 'o',color="#bce672",linestyle="-",markersize=0.1,linewidth=1,label="cam 0-1")
+# plt.plot(xx,y2,marker = 'o',color="#ffa631",linestyle="-",markersize=0.1,linewidth=1,label="cam 0-2")
+# plt.plot(xx,y3,marker = 'o',color="#177cb0",linestyle="-",markersize=0.1,linewidth=1,label="cam 0-3")
+# plt.plot(xx,y4,marker = 'o',color="#c32136",linestyle="-",markersize=0.1,linewidth=1,label="cam 0-4")
+# plt.plot(xx,y5,marker = 'o',color="#5d513c",linestyle="-",markersize=0.1,linewidth=1,label="cam 0-5")
+# ax = plt.gca()
+# ax.axes.xaxis.set_visible(False)
+# ax.axes.yaxis.set_visible(False)
+# fig,ax = plt.subplots()
+# n,bins_num,pat = ax.hist([x1,x2,x3,x4,x5],color=["#bce672","#ffa631","#177cb0","#c32136","#5d513c"],label=['cam 0-1','cam 0-2', 'cam 0-3', 'cam 0-4', 'cam 0-5'],bins=range(mi,ma,step), alpha=0)
+# x = bins_num[:len(range(mi,ma,step))-1]
+
+# ax.plot(x,n[0],marker = 'o',color="#bce672",linestyle="-",markersize=0.3,linewidth=1,label="cam 0-1")
+# ax.plot(x,n[1],marker = 'o',color="#ffa631",linestyle="-",markersize=0.3,linewidth=1,label="cam 0-2")
+# ax.plot(x,n[2],marker = 'o',color="#177cb0",linestyle="-",markersize=0.3,linewidth=1,label="cam 0-3")
+# ax.plot(x,n[3],marker = 'o',color="#c32136",linestyle="-",markersize=0.3,linewidth=1,label="cam 0-4")
+# ax.plot(x,n[4],marker = 'o',color="#5d513c",linestyle="-",markersize=0.3,linewidth=1,label="cam 0-5")
+
+# plt.hist([x1,x2],bins=len(x1),color=["#bce672","#ffa631"],label=["cam 0-1","cam 0-2"])
+# sns.displot(data=x1,fill=False,label='cam 0-1',color='#bce672',kde=True)
+# sns.displot(data=[{"tp":0, "dt":x1},{"tp":1, "dt":x2}],x="dt",fill=False,element="poly",bins=len(x1),hue="tp")
+# sns.displot(data=x2,x="t",fill=False,element="poly",color='#ffa631',bins=len(x2),label='cam 0-2',hue='cam to cam')
+# sns.displot(data=x3,x="t",fill=False,element="poly",color='#177cb0',bins=len(x3),label='cam 0-3',hue='cam to cam')
+#ffa631
+
+# plt.tick_params(labelsize=15)
+# # plt.xticks(fontsize=10)
+# # plt.yticks(fontsize=10)
+# plt.ylabel(r'probability',fontsize=30)
+# plt.xlabel(r'$\Delta$t',fontsize=30)
+# plt.legend(loc='upper right',fontsize=20)  # 显示图例
+# plt.savefig("/home/zyb/projects/HGO_v2/figures/fig_1_a.png")
+
+# # 2. 绘图
+# plt.scatter(x1,  # 横坐标
+#             y1,  # 纵坐标
+#             c='#bce672',  # 点的颜色
+#             label='cam 0-1',s=5)  # 标签 即为点代表的意思
+
+# plt.scatter(x2, y2, c='#ffa631',label='cam 0-2',s=5) 
+# plt.scatter(x3, y3, c='#177cb0',label='cam 0-3',s=5) 
+# plt.scatter(x4, y4, c='#c32136',label='cam 0-4',s=5) 
+# plt.scatter(x5, y5, c='#5d513c',label='cam 0-5',s=5) 
+# # 3.展示图形
+# plt.xlabel(r'$\Delta$t')
+# plt.legend()  # 显示图例
+# plt.savefig("time_interval_true.png")
+
+
+plt.figure(dpi=800,figsize=(10,8))
+# train
+# ks = [1,2,3,4,5,6,7,8,9,10]
+# M_map_ks = [24.8, 74.9, 75.4, 75.1, 74.9, 74.9, 74.5, 73.3, 72.8, 72.1]
+# MSMT17_map_ks = [3.5, 27.9, 26.6, 24.9, 22.8, 21.2, 19.6, 17.6, 16.5, 14.9]
+# kl = [10,20,30,40,50,60,70,80,90,100]
+# M_map_kl = [68.9, 73.5, 75.3, 75.0, 75.6, 75.4, 75.0, 75.2, 75.2, 75.2]
+# MSMT17_map_kl = [18.2, 23.4, 24.1, 25.6, 26.2, 26.6, 26.6, 26.9, 27.4, 27.3]
+
+# test
+ks = [1,2,3,4,5,6,7,8,9,10]
+M_map_ks = [54.8, 83.9, 85.9, 86.6, 86.5, 86.4, 85.9, 85.1, 84.4, 83.6]
+MSMT17_map_ks = [15.5, 53.2, 52.1, 50.6, 49.2, 47.7, 46.5, 45.3, 44.1, 43.0]
+
+kl = [10,20,30,40,50,60,70,80,90,100]
+M_map_kl = [83.5, 85.6, 86.0, 86.2, 86.1, 85.9, 85.7, 85.4, 85.3, 85.0]
+MSMT17_map_kl = [40.0, 46.8, 49.5, 50.8, 50.9, 52.1, 52.4, 52.5, 52.6, 52.7]
+
+
+
+#设置折点属性
+plt.tick_params(labelsize=20)
+plt.plot(kl, M_map_kl, c='#177cb0', ls='-',  marker='o',markersize=10)
+plt.plot(kl, MSMT17_map_kl, c='#ffa400', ls='-', marker='s',markersize=10)
+
+plt.xlabel("$k_{l}$",fontsize=30)
+plt.ylabel("mAP(%)",fontsize=30)
+plt.legend(('Market-1501', 'MSMT17'), loc='best',fontsize=20)  
+plt.title('mAP',fontsize=30) 
+
+plt.savefig("/home/zyb/projects/HGO_v2/figures/test_kl_map.png")
+
+# pynvml.nvmlInit()
+
+# a = [0,1,2,0,5]
+# a = np.array(a)
+# b = np.nonzero(a)
+# print(b[0])
 
 # vg_features = torch.load("/home/zyb/projects/h-go/logs/old/d2m/train_graphsage/vision/train_g_features.pth")
 # vg_features = F.normalize(vg_features, p=2, dim=1)

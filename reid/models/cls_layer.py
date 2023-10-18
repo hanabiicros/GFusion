@@ -22,7 +22,8 @@ class OldClsTarget(nn.Module):
                  t_cam_ids,
                  t_alpha,
                  t_beta,
-                 t_switch):
+                 t_switch,
+                 arch):
         super(OldClsTarget, self).__init__()
         # target
         self.t_alpha = t_alpha
@@ -38,9 +39,10 @@ class OldClsTarget(nn.Module):
 
         if in_dim > 0:
             in_dim = in_dim
+        elif "vit" in arch:
+            in_dim = 384
         else:
             in_dim = 2048
-            # in_dim = 384
 
         # hyper parameter
         self.use_single = False

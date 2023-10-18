@@ -38,7 +38,7 @@ def smooth_score(c1, c2, time1, time2, camera_delta_s, track_interval=20, filter
     return score
 
 
-def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False, interval = 25, filter = 40000):
+def predict_track_scores(real_tracks, camera_delta_s, train_indexs, smooth=False, interval = 25, filter = 40000):
     # fusion_param = get_fusion_param()
     # persons_deltas_score = pickle_load(fusion_param['persons_deltas_path'])
     # if pickle_load(fusion_param['persons_deltas_path']) is not None:
@@ -46,20 +46,20 @@ def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False
     # predict_path = fusion_param['renew_pid_path']
     # test_tracks.txt
     # print("len(real_tracks):{}".format(len(real_tracks)))
-    len_track = len(real_tracks)
-    top_cnt = 10
+    # len_track = len(real_tracks)
+    # top_cnt = 10
     # persons_deltas_score = list()
-    sts_score = [[0 for i in range(len_track)] for j in range(len_track)]
+    sts_scores = []
     # todo 不用读第二遍
     # pids4probes = np.genfromtxt(predict_path, delimiter=' ', dtype = np.int32)
     # for probe_i, pids4probe in enumerate(pids4probes):
-    for i in range(len_track):
+    for i in range(len(train_indexs)):
         # person_deltas_score = list()
         # if probe_i % 100 == 0:
         #     print('%d of %d' % (probe_i, len(pids4probes)))
-        temp = 0
         # for pid4probe in pids4probe:
-        for j in range(len_track):
+        st_scores = []
+        for j in train_indexs[i]:
             # todo transfer: if predict by python, start from 0, needn't minus 1
             # pid4probe = int(pid4probe)
             # predict_idx = predict_idx - 1
@@ -68,7 +68,7 @@ def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False
                 s2 = real_tracks[i][3]
                 if s1 != s2:
                     # person_deltas_score.append(-1.0)
-                    sts_score[i][j] = 0
+                    st_scores.append(0.)
                     continue
             time1 = real_tracks[j][2]
             # if track_score_idx == 3914:
@@ -76,9 +76,8 @@ def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False
             time2 = real_tracks[i][2]
             c1 = real_tracks[j][1]
             c2 = real_tracks[i][1]
-            temp = temp + 1 
             if c1 == c2:
-                sts_score[i][j] = 0
+                st_scores.append(0.)
             # if smooth:
             #     # if '_dukequerytail' in predict_path:
             #     #     score = track_score(camera_delta_s, c1, time1, c2, time2, interval=500, moving_st=True, filter_interval=50000)
@@ -97,14 +96,14 @@ def predict_track_scores(real_tracks, camera_delta_s, fusion_param, smooth=False
                     # if(probe_i < 10 and temp < 100):
                     #     print("probe_i:{},real_tracks[probe_i]:{},pid4probe:{},real_tracks[pid4probe]:{},sp_score:{}".format(probe_i,real_tracks[probe_i],pid4probe,real_tracks[pid4probe],score))
             # if(score != -1.0):
-                sts_score[i][j] = score
+                st_scores.append(score)
         #     person_deltas_score.append(score)
         # probe_i += 1
         # persons_deltas_score.append(person_deltas_score)
-        
+        sts_scores.append(st_scores)
     # print("sts_score[0][0]:{},sts_score[0][4]:{}".format(sts_score[0][0],sts_score[0][4]))
 
-    return sts_score
+    return sts_scores
 
 
 def predict_img_scores(fusion_param):
@@ -164,28 +163,30 @@ def get_data(source, target, data_dir):
     # return real_tracks
 
 
-def fusion_st_img_ranker(fusion_param, source = 'DukeMTMC-reID', target = 'market', data_path = '/hdd/sdb/lsc/dataset_person', interval=25, scores = None):
-    ep = fusion_param['ep']
-    en = fusion_param['en']
+def fusion_st_img_ranker(fusion_param, t_train, train_indexs, interval=25):
+    # ep = fusion_param['ep']
+    # en = fusion_param['en']
     # print('ep:{}\t en:{}'.format(ep,en))
     # 从renew_pid和renew_ac获取预测的人物id和图像分数
     # persons_ap_scores = predict_img_scores(fusion_param)
-    persons_ap_scores = scores
+    # persons_ap_scores = scores
     # persons_ap_pids = predict_pids(fusion_param)
     # 从磁盘获取之前建立的时空模型，以及随机时空模型
     camera_delta_s = pickle_load(fusion_param['distribution_pickle_path'])
     # rand_delta_s = pickle_load(fusion_param['rand_distribution_pickle_path'])
     # diff_delta_s = pickle_load(fusion_param['rand_distribution_pickle_path'].replace('rand', 'diff'))
 
-    dataset = get_data(source, target, data_path)
-    train = dataset.target_train_real_s2
-    real_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in train]
+    # dataset = get_data(source, target, data_path)
+    # train = dataset.target_train_real
+    real_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in t_train]
     # 计算时空评分和随机时空评分
     print("时空评分计算...")
-    if target == 'msmt17':
-        persons_track_scores = predict_track_scores(real_tracks, camera_delta_s, fusion_param, interval = interval, filter = 1000)
-    else:
-        persons_track_scores = predict_track_scores(real_tracks, camera_delta_s, fusion_param, interval = interval)
+    # if target == 'msmt17':
+    #     persons_track_scores = predict_track_scores(real_tracks, camera_delta_s, fusion_param, interval = interval, filter = 1000)
+    # elif target == 'DukeMTMC-reID':
+    #     persons_track_scores = predict_track_scores(real_tracks, camera_delta_s, fusion_param, interval = interval, filter = 300000)
+    # else:
+    persons_track_scores = predict_track_scores(real_tracks, camera_delta_s, train_indexs, interval = interval)
     persons_track_scores = np.array(persons_track_scores)
     # eval_path = 'eval/market2duke-train'
     # mkdir_if_missing(eval_path)
@@ -383,19 +384,19 @@ def gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, indexs, f
 
 
 
-def fusion_st_gallery_ranker(fusion_param, source = 'DukeMTMC-reID', target = 'market',data_path='/hdd/sdb/zyb/TFusion/SpCL/data',interval=50, scores=None, gscores=None, qgindexs=None, ggindexs=None):
+def fusion_st_gallery_ranker(fusion_param, t_query, t_gallery,interval=50, qgindexs=None, ggindexs=None):
     # ep = fusion_param['ep']
     # en = fusion_param['en']
     #print('ep:{}\t en:{}'.format(ep,en))
     # log_path = fusion_param['eval_fusion_path']
     # map_score_path = fusion_param['fusion_normal_score_path']  # fusion_param = get_fusion_param()
     
-    dataset = get_data(source, target, data_path)
-    query = dataset.target_query
-    gallery = dataset.target_gallery
+    # dataset = get_data(source, target, data_path)
+    # query = dataset.target_query
+    # gallery = dataset.target_gallery
 
-    query_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in query]
-    gallery_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in gallery]
+    query_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in t_query]
+    gallery_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in t_gallery]
     len_query = len(query_tracks)
     len_gallery = len(gallery_tracks)
     print('probe and gallery tracks ready')
@@ -442,12 +443,12 @@ def fusion_st_gallery_ranker(fusion_param, source = 'DukeMTMC-reID', target = 'm
     # print('rand scores ready')
     # smooth = '_grid' in log_path
     # smooth = True
-    if target == 'msmt17':
-        persons_track_scores = gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, qgindexs, fusion_param, smooth=False, interval=interval, filter=1000)
-        gg_track_scores = gallery_track_scores(gallery_tracks, gallery_tracks, camera_delta_s, ggindexs, fusion_param, smooth=False, interval=interval, filter=1000)
-    else:
-        persons_track_scores = gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, qgindexs, fusion_param, smooth=False,interval=interval)
-        gg_track_scores = gallery_track_scores(gallery_tracks, gallery_tracks, camera_delta_s, ggindexs, fusion_param, smooth=False,interval=interval)
+    # if target == 'msmt17':
+    #     persons_track_scores = gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, qgindexs, fusion_param, smooth=False, interval=interval, filter=1000)
+    #     gg_track_scores = gallery_track_scores(gallery_tracks, gallery_tracks, camera_delta_s, ggindexs, fusion_param, smooth=False, interval=interval, filter=1000)
+    # else:
+    persons_track_scores = gallery_track_scores(query_tracks, gallery_tracks, camera_delta_s, qgindexs, fusion_param, smooth=False,interval=interval)
+    gg_track_scores = gallery_track_scores(gallery_tracks, gallery_tracks, camera_delta_s, ggindexs, fusion_param, smooth=False,interval=interval)
     
     persons_track_scores = np.array(persons_track_scores, dtype=np.float16)
     gg_track_scores = np.array(gg_track_scores, dtype=np.float16)

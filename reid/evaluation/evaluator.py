@@ -101,7 +101,7 @@ def pairwise_distance(query_features, gallery_features, query=None, gallery=None
 def evaluate_all(query_features, gallery_features, distmat, query=None, gallery=None,
                  query_ids=None, gallery_ids=None,
                  query_cams=None, gallery_cams=None,
-                 cmc_topk=(1, 5, 10)):
+                 cmc_topk=(1, 5, 10), kl=50, is_train=True):
     if query is not None and gallery is not None:
         query_ids = [pid for _, pid, _,_,_ in query]
         gallery_ids = [pid for _, pid, _,_,_ in gallery]
@@ -113,39 +113,55 @@ def evaluate_all(query_features, gallery_features, distmat, query=None, gallery=
 
     query_features = torch.FloatTensor(query_features)
     gallery_features = torch.FloatTensor(gallery_features)
-    CMC = torch.IntTensor(len(gallery_ids)).zero_()
-    ap = 0.0
+    # CMC = torch.IntTensor(len(gallery_ids)).zero_()
+    # ap = 0.0
     scores, indexs = [], []
     gscores, gindexs = [], []
 
-    for i in range(len(gallery_ids)):
-        query = gallery_features[i].view(-1,1) 
-        gscore = torch.mm(gallery_features,query) 
-        gscore = gscore.squeeze(1).cpu()
-        gscore = gscore.numpy()
-        # predict index
-        index = np.argsort(-gscore)[:100]  #from small to large
-        # index = index[::-1]
-        gscore = gscore[index]
-        gindexs.append(index)
-        gscores.append(gscore)
+    if not is_train:
+        # for i in range(len(gallery_ids)):
+            # distance = euclidean_distances(gallery_features[i], gallery_features, squared=True)
+        #     distance /= 2
+        #     score = np.exp(-distance,dtype=np.float16)
+        #     gindex = np.argsort(-score[0])[:kl]
+        #     gscores.append(score[0][gindex])
 
-    for i in range(len(query_ids)):
-        query = query_features[i].view(-1,1) 
-        score = torch.mm(gallery_features,query) 
-        score = score.squeeze(1).cpu()
-        score = score.numpy()
-        # predict index
-        index = np.argsort(-score)[:5] 
-        # index = index[::-1]
-        score = score[index]
-        indexs.append(index)
-        scores.append(score)
+        # for i in range(len(query_ids)):
+        #     distance = euclidean_distances(query_features[i], gallery_features, squared=True)
+        #     distance /= 2
+        #     score = np.exp(-distance,dtype=np.float16)
+        #     index = np.argsort(-score[0])[:kl]
+        #     scores.append(score[0][index])
 
-    indexs = np.array(indexs, dtype=np.int32)
-    gindexs = np.array(gindexs, dtype=np.int32)
-    scores = np.array(scores, dtype=np.float16)
-    gscores = np.array(gscores, dtype=np.float16)
+        for i in range(len(gallery_ids)):
+            query = gallery_features[i].view(-1,1) 
+            gscore = torch.mm(gallery_features,query) 
+            gscore = gscore.squeeze(1).cpu()
+            gscore = gscore.numpy()
+            # predict index
+            index = np.argsort(-gscore)[:kl]  #from small to large
+            # index = index[::-1]
+            gscore = gscore[index]
+            gindexs.append(index)
+            gscores.append(gscore)
+
+        for i in range(len(query_ids)):
+            query = query_features[i].view(-1,1) 
+            score = torch.mm(gallery_features,query) 
+            score = score.squeeze(1).cpu()
+            score = score.numpy()
+            # predict index
+            index = np.argsort(-score)[:kl] 
+            # index = index[::-1]
+            score = score[index]
+            indexs.append(index)
+            scores.append(score)
+
+        indexs = np.array(indexs, dtype=np.int32)
+        gindexs = np.array(gindexs, dtype=np.int32)
+        scores = np.array(scores, dtype=np.float16)
+        gscores = np.array(gscores, dtype=np.float16)
+
     # scores = sp.coo_matrix(scores, dtype=np.float16)
     # gscores = sp.coo_matrix(gscores, dtype=np.float16)
 
@@ -163,7 +179,7 @@ def evaluate_all(query_features, gallery_features, distmat, query=None, gallery=
     for k in cmc_topk:
         print('  top-{:<4}{:12.1%}'
               .format(k, all_cmc[k - 1]))
-    return mAP, scores, gscores, indexs, gindexs, query_features, gallery_features
+    return mAP, all_cmc[0], scores, gscores, indexs, gindexs, query_features, gallery_features
 
 
 def save_feature(features, fpaths, labels, camids, save_name):
@@ -177,19 +193,19 @@ def save_feature(features, fpaths, labels, camids, save_name):
     sci.savemat(osp.join(save_dir, save_name+'_result.mat'),
                 result)
 
-def sort_by_score(qf,gf):
+def sort_by_score(qf, gf, ks):
     query = qf.view(-1,1)
     # print(query.shape)
     score = torch.mm(gf,query)
     score = score.squeeze(1).cpu()
     score = score.numpy()
     # predict index
-    index = np.argsort(-score)[:500]  #from small to large
+    index = np.argsort(-score)[:ks]  #from small to large
     # index = index[::-1]
     score = score[index]
     return index, score
 
-def get_score_pid_on_training(features,train=None):
+def get_score_pid_on_training(features, train=None, ks=4, logs_dir=""):
 
     x = torch.cat([features[f].unsqueeze(0) for f, _, _,_ ,_ in train], 0)
     m = x.size(0)
@@ -199,27 +215,17 @@ def get_score_pid_on_training(features,train=None):
     train_features = torch.FloatTensor(train_features)
 
     train_ids = [pid for _, pid, _ ,_ ,_ in train]
-    train_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in train]
-    # print('train_tracks[1573]:{}\t train_tracks[10208]:{}'.format(train_tracks[1573],train_tracks[10208]))
-    scores, indexs = [], []
+    indexs = []
     for i in range(len(train_ids)):
-        index, score = sort_by_score(train_features[i],train_features)
-        # scores.append(score)
+        index, score = sort_by_score(train_features[i], train_features, ks)
         indexs.append(index)
 
-    # scores = np.array(scores)
-    indexs = np.array(indexs, dtype=np.int32)
+    indexs = np.array(indexs, dtype=np.int16)
+    logs_dir = logs_dir + "/indexs.txt"
+    np.savetxt(logs_dir, indexs, fmt='%d')
     #transfer_name = opt.name + '_' + target + '-train'
 
     return indexs
-    # if eval_path is not None:
-    #         mkdir_if_missing(eval_path)
-    # score_path = os.path.join(eval_path, 'score.txt')
-    # pid_path = os.path.join(eval_path, 'pid.txt')
-    # # np.savetxt(score_path, scores, fmt='%.4f')
-    # np.savetxt(pid_path, indexs, fmt='%d')
-    # result = {'ft': train_features.numpy()}
-    # sci.savemat(os.path.join(eval_path, 'train_ft.mat'),result)
 
 def result_eval(predict_path, score_path ,query=None, gallery=None):
     res = np.genfromtxt(predict_path, delimiter=' ',dtype = np.int32)
@@ -259,14 +265,15 @@ class Evaluator(object):
         self.visualize = False
 
     # for train
-    def evaluate(self, query_loader, gallery_loader, query, gallery):
+    def evaluate(self, query_loader, gallery_loader, query, gallery, kl=50, is_train=True):
         query_features, _ = extract_features(self.backbone, query_loader)
         gallery_features, _ = extract_features(self.backbone, gallery_loader)
         distmat, query_features, gallery_features = pairwise_distance(query_features, gallery_features, query, gallery)
 
-        return evaluate_all(query_features, gallery_features, distmat, query=query, gallery=gallery)
+        return evaluate_all(query_features, gallery_features, distmat, query=query, gallery=gallery, kl=kl, is_train=is_train)
 
     def extract_tgt_train_features(self, train_loader, save_name=None, layer=None):
+        self.backbone.eval()
         features, paths, labels, camids = [], [], [], []
         for i, (imgs, fpaths, pids, cams, _) in enumerate(train_loader):
             outputs = extract_cnn_feature(self.backbone, imgs, layer)
@@ -292,11 +299,11 @@ class Evaluator(object):
         end_time = time.monotonic()
         print('evaluate_on_fusion_time : {}'.format(end_time - start_time))
 
-    def transfer(self, data_loader, train):
+    def transfer(self, data_loader, train, ks=4, logs_dir=""):
         start_time = time.monotonic()
         features, _ = extract_features(self.backbone, data_loader)
         
-        indexs = get_score_pid_on_training(features,train)
+        indexs = get_score_pid_on_training(features, train, ks, logs_dir)
         # results = evaluate_market1501(query_features, gallery_features, distmat, query=query, gallery=gallery, cmc_flag=cmc_flag)
         end_time = time.monotonic()
         print('transfer_time : {}'.format(end_time - start_time))

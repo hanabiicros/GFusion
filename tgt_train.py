@@ -36,7 +36,7 @@ from reid.img_st_fusion import stmain
 from reid.graphsage.dataCenter import *
 from reid.graphsage.models import *
 from reid.graphsage.utils import *
-
+from reid.models.dsbn import convert_dsbn
 
 
 def get_data(opt):
@@ -45,34 +45,13 @@ def get_data(opt):
     s_pids = dataset.s_train_pids
     s_train = dataset.source_train
     t_train_fake = dataset.target_train_fake
-
-    t_train_fake1 = dataset.target_train_fake_s1
-    t_train_fake2 = dataset.target_train_fake_s2
-    t_train_fake3 = dataset.target_train_fake_s3
-    t_train_fake4 = dataset.target_train_fake_s4
-    t_train_fake5 = dataset.target_train_fake_s5
-    t_train_fake6 = dataset.target_train_fake_s6
-
     t_train_real = dataset.target_train_real
-    
-    t_train_real1 = dataset.target_train_real_s1
-    t_train_real2 = dataset.target_train_real_s2
-    t_train_real3 = dataset.target_train_real_s3
-    t_train_real4 = dataset.target_train_real_s4
-    t_train_real5 = dataset.target_train_real_s5
-    t_train_real6 = dataset.target_train_real_s6
 
     s_query = dataset.source_query
     t_query = dataset.target_query
     s_gallery = dataset.source_gallery
     t_gallery = dataset.target_gallery
     t_cam_2_imgs = dataset.t_train_cam_2_imgs
-    t_cam_2_imgs_s1 = dataset.t_train_cam_2_imgs_s1
-    t_cam_2_imgs_s2 = dataset.t_train_cam_2_imgs_s2
-    t_cam_2_imgs_s3 = dataset.t_train_cam_2_imgs_s3
-    t_cam_2_imgs_s4 = dataset.t_train_cam_2_imgs_s4
-    t_cam_2_imgs_s5 = dataset.t_train_cam_2_imgs_s5
-    t_cam_2_imgs_s6 = dataset.t_train_cam_2_imgs_s6
     s_cam_2_imgs = dataset.s_train_cam_2_imgs
 
     height, width = opt.height, opt.width
@@ -116,117 +95,9 @@ def get_data(opt):
         pin_memory=True,
         drop_last=True
     )
-    t_train_loader1 = DataLoader(
-        dataset=CamStylePreprocessor(t_train_fake1, num_cam=len(t_cam_2_imgs),
-                                     transform=train_transformer, use_camstyle=opt.use_camstyle), # todo next try
-        batch_size=batch_size,
-        num_workers=workers,
-        shuffle=False,
-        pin_memory=True,
-        drop_last=True
-    )
-    t_train_loader2 = DataLoader(
-        dataset=CamStylePreprocessor(t_train_fake2, num_cam=len(t_cam_2_imgs),
-                                     transform=train_transformer, use_camstyle=opt.use_camstyle), # todo next try
-        batch_size=batch_size,
-        num_workers=workers,
-        shuffle=True,
-        pin_memory=True,
-        drop_last=True
-    )
-    t_train_loader3 = DataLoader(
-        dataset=CamStylePreprocessor(t_train_fake3, num_cam=len(t_cam_2_imgs),
-                                     transform=train_transformer, use_camstyle=opt.use_camstyle), # todo next try
-        batch_size=batch_size,
-        num_workers=workers,
-        shuffle=True,
-        pin_memory=True,
-        drop_last=True
-    )
-    t_train_loader4 = DataLoader(
-        dataset=CamStylePreprocessor(t_train_fake4, num_cam=len(t_cam_2_imgs),
-                                     transform=train_transformer, use_camstyle=opt.use_camstyle), # todo next try
-        batch_size=batch_size,
-        num_workers=workers,
-        shuffle=True,
-        pin_memory=True,
-        drop_last=True
-    )
-    t_train_loader5 = DataLoader(
-        dataset=CamStylePreprocessor(t_train_fake5, num_cam=len(t_cam_2_imgs),
-                                     transform=train_transformer, use_camstyle=opt.use_camstyle), # todo next try
-        batch_size=batch_size,
-        num_workers=workers,
-        shuffle=True,
-        pin_memory=True,
-        drop_last=True
-    )
-    t_train_loader6 = DataLoader(
-        dataset=CamStylePreprocessor(t_train_fake6, num_cam=len(t_cam_2_imgs),
-                                     transform=train_transformer, use_camstyle=opt.use_camstyle), # todo next try
-        batch_size=batch_size,
-        num_workers=workers,
-        shuffle=True,
-        pin_memory=True,
-        drop_last=True
-    )
 
     t_traintest_loader = DataLoader(
         dataset=Preprocessor(t_train_real, test_graph_transformer),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=workers,
-        pin_memory=True,
-        drop_last=False
-    )
-
-    t_traintest_loader1 = DataLoader(
-        dataset=Preprocessor(t_train_real1, test_graph_transformer),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=workers,
-        pin_memory=True,
-        drop_last=False
-    )
-    
-    t_traintest_loader2 = DataLoader(
-        dataset=Preprocessor(t_train_real2, test_graph_transformer),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=workers,
-        pin_memory=True,
-        drop_last=False
-    )
-
-    t_traintest_loader3 = DataLoader(
-        dataset=Preprocessor(t_train_real3, test_graph_transformer),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=workers,
-        pin_memory=True,
-        drop_last=False
-    )
-
-    t_traintest_loader4 = DataLoader(
-        dataset=Preprocessor(t_train_real4, test_graph_transformer),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=workers,
-        pin_memory=True,
-        drop_last=False
-    )
-
-    t_traintest_loader5 = DataLoader(
-        dataset=Preprocessor(t_train_real5, test_graph_transformer),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=workers,
-        pin_memory=True,
-        drop_last=False
-    )
-
-    t_traintest_loader6 = DataLoader(
-        dataset=Preprocessor(t_train_real6, test_graph_transformer),
         batch_size=batch_size,
         shuffle=False,
         num_workers=workers,
@@ -250,50 +121,46 @@ def get_data(opt):
         pin_memory=True,
         drop_last=False
     )
-    s_train_loader = DataLoader(
-        dataset=Preprocessor(s_train, train_transformer),
-        batch_size=batch_size,
-        num_workers=workers,
-        shuffle=True,
-        pin_memory=True,
-        drop_last=True
-    )
-    s_traintest_loader = DataLoader(
-        dataset=Preprocessor(s_train, test_transformer),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=workers,
-        pin_memory=False,
-        drop_last=False
-    )
-    s_query_loader = DataLoader(
-        dataset=Preprocessor(s_query, test_transformer),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=workers,
-        pin_memory=False,
-        drop_last=False
-    )
-    s_gallery_loader = DataLoader(
-        dataset=Preprocessor(s_gallery, test_transformer),
-        batch_size=batch_size,
-        shuffle=False,
-        num_workers=workers,
-        pin_memory=False,
-        drop_last=False
-    )
+    # s_train_loader = DataLoader(
+    #     dataset=Preprocessor(s_train, train_transformer),
+    #     batch_size=batch_size,
+    #     num_workers=workers,
+    #     shuffle=True,
+    #     pin_memory=True,
+    #     drop_last=True
+    # )
+    # s_traintest_loader = DataLoader(
+    #     dataset=Preprocessor(s_train, test_transformer),
+    #     batch_size=batch_size,
+    #     shuffle=False,
+    #     num_workers=workers,
+    #     pin_memory=False,
+    #     drop_last=False
+    # )
+    # s_query_loader = DataLoader(
+    #     dataset=Preprocessor(s_query, test_transformer),
+    #     batch_size=batch_size,
+    #     shuffle=False,
+    #     num_workers=workers,
+    #     pin_memory=False,
+    #     drop_last=False
+    # )
+    # s_gallery_loader = DataLoader(
+    #     dataset=Preprocessor(s_gallery, test_transformer),
+    #     batch_size=batch_size,
+    #     shuffle=False,
+    #     num_workers=workers,
+    #     pin_memory=False,
+    #     drop_last=False
+    # )
 
     return t_pids, s_pids, t_train_loader, t_train_real,\
            t_query_loader, t_gallery_loader,\
-           t_query, t_gallery, s_train_loader,\
-           s_query_loader, s_gallery_loader, \
+           t_query, t_gallery, [],\
+           [], [], \
            s_query, s_gallery, \
-           t_traintest_loader, s_traintest_loader, \
-           t_train_fake, s_train, t_cam_2_imgs, s_cam_2_imgs, \
-           t_train_loader1, t_train_loader2, t_train_loader3, t_train_loader4, t_train_loader5, t_train_loader6, \
-           t_traintest_loader1, t_traintest_loader2, t_traintest_loader3, t_traintest_loader4, t_traintest_loader5, t_traintest_loader6, \
-           t_train_real1, t_train_real2, t_train_real3, t_train_real4, t_train_real5, t_train_real6,  \
-           t_cam_2_imgs_s1, t_cam_2_imgs_s2, t_cam_2_imgs_s3, t_cam_2_imgs_s4, t_cam_2_imgs_s5, t_cam_2_imgs_s6
+           t_traintest_loader, [], \
+           t_train_fake, s_train, t_cam_2_imgs, s_cam_2_imgs
 
 # class WalkEmbedding(WalkBasedEmbedding):
 #     def __init__(self, graph, dimension, iterations, walker, sampler, model):
@@ -495,34 +362,38 @@ def main(opt):
     s_query_loader, s_gallery_loader, \
     s_query, s_gallery, \
     t_traintest_loader, s_traintest_loader, \
-    t_train, s_train, t_cam_2_imgs, s_cam_2_imgs, \
-    t_train_loader1, t_train_loader2, t_train_loader3, t_train_loader4, t_train_loader5, t_train_loader6, \
-    t_traintest_loader1, t_traintest_loader2, t_traintest_loader3, t_traintest_loader4, t_traintest_loader5, t_traintest_loader6, \
-    t_train_real1, t_train_real2, t_train_real3, t_train_real4, t_train_real5, t_train_real6, \
-    t_cam_2_imgs_s1, t_cam_2_imgs_s2, t_cam_2_imgs_s3, t_cam_2_imgs_s4, t_cam_2_imgs_s5, t_cam_2_imgs_s6 \
+    t_train, s_train, t_cam_2_imgs, s_cam_2_imgs,\
     = get_data(opt)
 
     # Create model
     if 'resnet' in opt.arch:
         print('use resnet')
         backbone = models.create(opt.arch, num_features=opt.features, dropout=opt.dropout, num_classes=0)
-    else:
+    elif 'vit' in opt.arch:
         print('use vit')
-        backbone = models.create(opt.arch,img_size=(opt.height,opt.width),drop_path_rate=opt.drop_path_rate
-                , pretrained_path = opt.pre_train,hw_ratio=opt.hw_ratio, conv_stem=opt.conv_stem)
-    
-
-    # backbone = resnet.MemoryBankModel(out_dim=2048)
-    # backbone = resnet.ICEResNet(num_features=args.features, dropout=args.dropout, num_classes=0)
-    # backbone = resnet.MMTResNet(50, num_features=args.features, dropout=args.dropout, num_classes=0)
+        backbone = models.create(opt.arch,img_size=(opt.height,opt.width),drop_path_rate=opt.drop_path_rate, pretrained_path = opt.pre_train,hw_ratio=opt.hw_ratio, conv_stem=opt.conv_stem)
+    elif 'ICE' in opt.arch:
+        print('use ICE')
+        backbone = resnet.ICEResNet(num_features=args.features, dropout=args.dropout, num_classes=0)
+    elif 'SpCL' in opt.arch:
+        print('use SpCL')
+        backbone = resnet.ICEResNet(num_features=args.features, norm=True, dropout=args.dropout, num_classes=0)
+        convert_dsbn(backbone)
+    elif 'CAP' in opt.arch:
+        print('use CAP')
+        backbone = resnet.MemoryBankModel(out_dim=2048)
+    elif 'MMT' in opt.arch:
+        print('use MMT')
+        backbone = resnet.MMTResNet(50, num_features=args.features, dropout=args.dropout, num_classes=0)
 
     old_cls_tgt = OldClsTarget(
                             len(t_train),
                             opt.features,
-                            t_cam_2_imgs_s2,
+                            t_cam_2_imgs,
                             opt.alpha,
                             opt.tao,
-                            opt.switch)
+                            opt.switch,
+                            opt.arch)
     # hyper parameter
     old_cls_tgt.use_single = opt.use_single
 
@@ -566,7 +437,7 @@ def main(opt):
         checkpoint = load_checkpoint(args.resume)
         new_state_dict =  {}
 
-        # MMT
+        #MMT
         # for key, value in checkpoint['state_dict'].items():
         #     if 'base.0' in key:
         #         name = key.replace('base.0','base.conv1')
@@ -584,7 +455,7 @@ def main(opt):
         #         name = key
         #     new_state_dict[name] = value
 
-        # CAP
+        # #CAP
         # for key,value in checkpoint.items():
         #     if 'embeding' in key:
         #         print('pretrained model has key= {}'.format(key))
@@ -606,7 +477,7 @@ def main(opt):
         #         name = key
         #     new_state_dict[name] = value
 
-        # ICE
+        # #ICE
         # for key, value in checkpoint['state_dict'].items():
         #     if 'base.0' in key:
         #         name = key.replace('base.0','base.conv1')
@@ -631,21 +502,31 @@ def main(opt):
         #         name = key
         #     new_state_dict[name] = value
         # backbone.load_state_dict(new_state_dict, strict=False)
-        backbone.load_state_dict(checkpoint['backbone_dict'], strict=False)
-        # if 'epoch' in checkpoint.keys():
-        #     start_epoch = checkpoint['epoch']
-        #     print('checkpoint loaded, start epoch is : {}'.format(start_epoch))
-
-    evaluator = Evaluator(backbone)   
-    best_map,_,_,_,_,_,_ = evaluator.evaluate(t_query_loader, t_gallery_loader, t_query, t_gallery)
+        if 'resnet' in opt.arch or opt.evaluate:
+            backbone.load_state_dict(checkpoint['backbone_dict'], strict=False)
+            print("load backbone dict")
+        elif 'CAP' in opt.arch:
+            backbone.load_state_dict(checkpoint, strict=False)
+            print("load checkpoint")
+        else:
+            backbone.load_state_dict(checkpoint['state_dict'], strict=False)
+            print("load state dict")
+    
+    if not opt.evaluate and opt.target != 'msmt17':
+        evaluator = Evaluator(backbone)   
+        map,top1,_,_,_,_,_,_ = evaluator.evaluate(t_query_loader, t_gallery_loader, t_query, t_gallery, opt.kl, False)
+        best_map = map+top1
     # Evaluator
     if opt.evaluate:
         print("test fusion")
+        # evaluator = Evaluator(backbone)
+        # indexs = evaluator.transfer(t_traintest_loader, t_train_real, opt.ks, opt.logs_dir)
+        # return
+        # indexs = np.genfromtxt(opt.logs_dir+"/indexs.txt", dtype=np.int32)
         evaluator = Evaluator(backbone)
-        best_map, scores, gscores, qgindexs, ggindexs, query_features, gallery_features = evaluator.evaluate(t_query_loader, t_gallery_loader, t_query, t_gallery, opt.k4, opt.kq)
-        indexs = evaluator.transfer(t_traintest_loader, t_train_real, opt.useful_cnt)
-        st_scores, gst_scores = stmain(opt, indexs, scores, gscores, qgindexs, ggindexs, flag = False)
-
+        best_map, _, scores, gscores, qgindexs, ggindexs, query_features, gallery_features = evaluator.evaluate(t_query_loader, t_gallery_loader, t_query, t_gallery, opt.kl, False)
+        indexs = evaluator.transfer(t_traintest_loader, t_train_real, opt.ks, opt.logs_dir)
+        st_scores, gst_scores = stmain(opt, indexs, t_train_real, t_query, t_gallery, qgindexs=qgindexs, ggindexs=ggindexs, flag = False)
 
         # # 对时空相似性进行max归一化 没用
         # for i in range(len(st_scores)):
@@ -671,73 +552,21 @@ def main(opt):
         # vision + st
         for i in range(len(gscores)):
             for index, j in enumerate(ggindexs[i]):
-                if gst_scores[i][index] != -1:
-                    if index < opt.k3 or gst_scores[i][index] > 0:
-                        if i != j:
-                            adj_lists[i].add(j)
-                            adj_lists[j].add(i)
-                            gg[i,j] = gscores[i][index] 
-                            gg[j,i] = gscores[i][index] 
+                if index < opt.ks or gst_scores[i][index] > 0:
+                # if index < opt.ks:
+                    if i != j:
+                        adj_lists[i].add(j)
+                        adj_lists[j].add(i)
+                        gg[i,j] = gscores[i][index] 
+                        gg[j,i] = gscores[i][index] 
 
             adj_lists[i].add(i)
-            gg[i,i] = 1          
-
-            # for index, j in enumerate(ggindexs[i]):
-            #     if index < 15:
-            #         if i != j:
-            #             adj_lists[i].add(j)
-            #             adj_lists[j].add(i)
-            #             gg[i,j] = gscores[i][index] 
-            #             gg[j,i] = gscores[i][index] 
-            #             gg_positive[i].add(j)
-            #             gg_positive[j].add(i)
-            #     else:
-            #         gg_negetive[i].add(j)
-            #         gg_negetive[j].add(i)
-                
-            
-
-        # only vision
-        # for i in range(len(gscores)):
-        #     for index, j in enumerate(ggindexs[i]):
-        #         if index < 5:
-        #             gg_top5[i].add(j)
-        #             gg_top5[j].add(i)
-        #         if index < 15:
-        #             if i != j:
-        #                 adj_lists[i].add(j)
-        #                 adj_lists[j].add(i)
-        #                 gg[i,j] = gscores[i][index] 
-        #                 gg[j,i] = gscores[i][index] 
-        #         else:
-        #             gg_top100[i].add(j)
-        #             gg_top100[j].add(i)
-        #     adj_lists[i].add(i)
-        #     gg[i,i] = 1
-
-        
-        # for i in range(len(gscores)):
-        #     indexs = adj_lists[i]
-        #     if i <= 10:
-        #         print("len_indexs:{}".format(len(indexs)))
-        #     sum_score = 0
-        #     for j in indexs:
-        #         sum_score += gg[i,j]
-        #     sum_scores.append(sum_score)
-			
-        # for i in range(len(gscores)):
-        #     indexs = adj_lists[i]
-        #     for j in indexs:
-        #         gg[i,j] /= sum_scores[i]
-        
-        
+            gg[i,i] = 1                
 
         query_ids = np.asarray([pid for _, pid, _,_,_ in t_query])
         gallery_ids = np.asarray([pid for _, pid, _ ,_,_ in t_gallery])
         query_cams = np.asarray([cam for _, _, cam,_,_ in t_query])
         gallery_cams = np.asarray([cam for _, _, cam,_,_ in t_gallery])
-        
-
         
         
         ## graphsage
@@ -754,7 +583,7 @@ def main(opt):
         del gscores
         del ggindexs
         # del gst_scores
-        del indexs
+        # del indexs
         gc.collect()
         torch.cuda.empty_cache()
 
@@ -795,52 +624,16 @@ def main(opt):
             # sum_score = 0
             # indexs = np.argsort(-scores[i])[:5]
             for index, j in enumerate(qgindexs[i]):
-                if i != j and st_scores[i][index] != -1:
-                # if i != j:
-                    # if index < 15 or (scores[i][index] > 0.8 and st_scores[i][index] > 0)
-                    adj_lists[len(gallery_features) + i].add(j)
-                    gg[len(gallery_features) + i,j] = scores[i][index]
-                    # sum_score += scores[i][index]
-                # if st_scores[i][index] != -1:
-                #     if index < 5 or (scores[i][index] > 0.9 and st_scores[i][index] > 0):
-                #         if i != j:
-                #             adj_lists[len(gallery_features) + i].add(j)
-                #             gg[len(gallery_features) + i,j] = scores[i][index] 
-                #             sum_score += scores[i][index]
+                if index < opt.ks or (st_scores[i][index] > 0):
+                # if index < opt.ks:
+                    if i != j:
+                        adj_lists[len(gallery_features) + i].add(j)
+                        gg[len(gallery_features) + i,j] = scores[i][index] 
+                            # sum_score += scores[i][index]
             adj_lists[len(gallery_features) + i].add(len(gallery_features) + i)
             gg[len(gallery_features) + i,len(gallery_features) + i] = 1
             # sum_score += 1
             # sum_scores.append(sum_score)
-        
-			
-        # for i in range(len(scores)):
-        #     indexs = adj_lists[len(gallery_features) + i]
-        #     for j in indexs:
-        #         gg[len(gallery_features) + i,j] /= sum_scores[i]
-
-        # top_dist_indexs = np.argsort(-scores)[:, :opt.k4]
-        # top_st_indexs = np.argsort(-st_scores)[:, 0]
-        # scores = qg_kneighbors(scores, scores, opt.k4, gallery_cams, isVision=True).to(device)
-        # pads = torch.zeros((len(gallery_features), len(query_features))).to(device)
-        # sum_scores = []
-        # for i in range(len(top_dist_indexs)):
-        #     indexs = set(top_dist_indexs[i])
-        #     # indexs = set(sort_same_indexs[i][:2]).union(set(sort_diff_indexs[i][:3]))
-        #     sum_score = 0
-        #     for j in indexs:
-        #         adj_lists_new[len(gallery_features) + i].add(j)
-        #         gscores[len(gallery_features) + i,j] = scores[i][j]
-        #         sum_score += scores[i][j]
-        #     gscores[len(gallery_features) + i,len(gallery_features) + i] = 1
-        #     sum_score += 1
-        #     sum_scores.append(sum_score)
-        #         # adj_lists_new[j].add(len(gallery_features) + i)
-        
-        # for i in range(len(top_dist_indexs)):
-        #     indexs = set(top_dist_indexs[i])
-        #     for j in indexs:
-        #         gscores[len(gallery_features) + i,j] /= sum_scores[i]
-        #     gscores[len(gallery_features) + i,len(gallery_features) + i] /= sum_scores[i]
 
         graphSage1.raw_weight = gg
         features = torch.cat((gallery_features, query_features), dim=0)
@@ -855,82 +648,6 @@ def main(opt):
         torch.save(vq_embeddings, vq_dir)
         torch.cuda.empty_cache()
 
-        
-        # 构建gallery时空图
-        # device = torch.device("cuda", 1)
-        # gallery_features = gallery_features.to(device)
-        # query_features = query_features.to(device)
-
-        
-        # # top_gst_indexs = np.argsort(-gst_scores)[:, :100]
-
-        # # negetive_indexs = np.argsort(-gst_scores)[:, opt.k3:30]
-        # dataCenter.load_dataSet(ds, len_g=len(gst_scores), isVision=False)
-
-        # # gst_scores = getattr(dataCenter, ds+'_weight_lists')
-        # graphSage2 = GraphSage(config['setting.num_layers'], gallery_features.size(1), config['setting.hidden_emb_size'], gallery_features, gg, adj_lists, device, gcn=True, agg_func=args.agg_func)
-        # # graphSage2 = nn.DataParallel(graphSage2, device_ids=[1])
-        # graphSage2.to(device)
-
-        # num_labels = 0
-        # classification = Classification(config['setting.hidden_emb_size'], num_labels)
-        # classification.to(device)
-
-        # unsupervised_loss = UnsupervisedLoss(adj_lists, getattr(dataCenter, ds+'_train'), gg_top5, gg_top100, device)
-
-
-        # print('GraphSage with spatial-temporal Net Unsupervised Learning')
-
-        # for epoch in range(args.g_epochs):
-        #     print('----------------------EPOCH %d-----------------------' % epoch)
-        #     graphSage2, classification = apply_model(dataCenter, ds, graphSage2, classification, unsupervised_loss, args.b_sz, args.unsup_loss, device, args.learn_method)
-        
-        # sg_features = get_gnn_embeddings(graphSage2, len(adj_lists))
-
-        # # adj_lists_new = getattr(dataCenter, ds+'_adj_lists')
-        # # top_st_index = np.argsort(-st_scores)[:, :opt.k4]
-        # # st_scores = qg_kneighbors(st_scores, opt.k4, isVision=False)
-        # sum_scores = []
-        # for i in range(len(st_scores)):
-        #     sum_score = 0
-        #     indexs = np.argsort(-st_scores[i])[:5]
-        #     for index, j in enumerate(indexs):
-        #         if i != j and st_scores[i][j] != 0 and st_scores[i][j] != -1 and st_scores[i][j] != -2:
-        #             adj_lists[len(gallery_features) + i].add(j)
-        #             gg[len(gallery_features) + i,j] = st_scores[i][j]
-        #             sum_score += st_scores[i][j]
-        #     adj_lists[len(gallery_features) + i].add(len(gallery_features) + i)
-        #     gg[len(gallery_features) + i,len(gallery_features) + i] = 1
-        #     sum_score += 1
-        #     sum_scores.append(sum_score)
-        
-        # for i in range(len(st_scores)):
-        #     indexs = adj_lists[len(gallery_features) + i]
-        #     for j in indexs:
-        #         gg[len(gallery_features) + i,j] /= sum_scores[i]
-
-        # features = torch.cat((gallery_features, query_features), dim=0)
-        # graphSage2.adj_lists = adj_lists
-        # graphSage2.raw_features = features
-        # graphSage2.raw_weight = gg
-        # sq_embeddings = get_query_embeddings(graphSage2, len(gallery_features), len(adj_lists))
-
-        # sg_features = sg_features.cpu()
-        # sq_embeddings = sq_embeddings.cpu()
-        # sq_dir = os.path.join(opt.logs_dir, 'sq_embeddings.pth')
-        # sg_dir = os.path.join(opt.logs_dir, 'sg_features.pth')
-        # torch.save(sq_embeddings, sq_dir)
-        # torch.save(sg_features, sg_dir)
-        # torch.cuda.empty_cache()
-
-        # sq_embeddings = torch.load("/home/zyb/projects/h-go/logs/old/m2d/ICE_hgo/graphsage/st/sq_embeddings.pth")
-        # sg_features = torch.load("/home/zyb/projects/h-go/logs/old/m2d/ICE_hgo/graphsage/st/sg_features.pth")
-        # vq_embeddings = torch.load("/home/zyb/projects/h-go/logs/old/m2d/ICE_hgo/graphsage/vision/q_embeddings.pth")
-        # vg_features = torch.load("/home/zyb/projects/h-go/logs/old/m2d/ICE_hgo/graphsage/vision/g_features.pth")
-
-        # q_embeddings = opt.vision_weight * vq_embeddings + (1 - opt.vision_weight) * sq_embeddings
-        # g_embeddings = opt.vision_weight * vg_features + (1 - opt.vision_weight) * sg_features
-
         q_embeddings =  vq_embeddings
         g_embeddings = vg_features
         distmat = compute_euclidean_distance(q_embeddings, g_embeddings)
@@ -944,166 +661,6 @@ def main(opt):
 
         return
 
-        ## baseline:use node2vec
-        # top_dist_index = np.argsort(-fusion_scores)[:, :5]
-        top_dist_index = np.argsort(-scores)[:, :opt.k3]
-        top_gg_index = np.argsort(-gscores)[:, :opt.k3]
-        top_st_index = np.argsort(-st_scores)[:, :opt.k4]
-        top_gst_index = np.argsort(-gst_scores)[:, :opt.k4]
-        query_nodes = query_fnames.copy()    #若直接=赋值，新列表的改变会影响原来的列表
-        # query_nodes2 = query_fnames.copy()
-        gallery_nodes = gallery_fnames.copy()
-        # gallery_nodes2 = gallery_fnames.copy()
-        g = nx.Graph()
-        h = nx.Graph()
-
-        for i in range(len(top_dist_index)):
-            for index,j in enumerate(top_dist_index[i]):
-                g.add_edge(query_fnames[i], gallery_fnames[j], weight = scores[i][j])
-        
-        for i in range(len(top_gg_index)):
-            for index,j in enumerate(top_gg_index[i]):
-                # if st_scores[i][j] == -1:
-                #     g.add_edge(query_fnames[i], gallery_fnames[j], weight = (0.65 * scores[i][j]))
-                # if index <= 3:
-                #     if i <= 5:
-                #         print(gscores[i][j], gst_scores[i][j]) 
-                #     g.add_edge(gallery_fnames[i], gallery_fnames[j], weight = (0.9 * gscores[i][j] + 0.35 * gst_scores[i][j]))   # 对于market/duke:weight=1,msmt:
-                # else:
-                #     # g.add_edge(query_fnames[i], gallery_fnames[j], weight = scores[i][j])
-                #     fusion_score = 0.65 * gscores[i][j] + 0.35 * gst_scores[i][j]
-                g.add_edge(gallery_fnames[i], gallery_fnames[j], weight = gscores[i][j])
-
-        for i in range(len(top_st_index)):
-            for index,j in enumerate(top_st_index[i]):
-                # if i == 0:
-                #     print(st_scores[i][j])
-                h.add_edge(query_fnames[i], gallery_fnames[j], weight = st_scores[i][j])
-        
-        for i in range(len(top_gst_index)):
-            for index,j in enumerate(top_gst_index[i]):
-                # if i == 0:
-                #     print(gst_scores[i][j])
-                h.add_edge(gallery_fnames[i], gallery_fnames[j], weight = gst_scores[i][j])
-
-        # pass scheme one
-        # weight = [[0 for i in range(len(scores[0]))] for j in range(len(scores))]
-        # for i in range(len(top_dist_index)):
-        #     list_ps_i = top_st_index[i]
-        #     list_pv_i = top_dist_index[i]
-        #     for index,j in enumerate(top_dist_index[i]):
-        #         s_topj = np.argsort(-st_scores[:,j])[0]
-        #         list_gs_j = top_st_index[s_topj]
-
-        #         v_topj = np.argsort(-scores[:,j])[0]
-        #         # print(s_topj, v_topj)
-        #         list_gv_j = top_dist_index[v_topj]
-        #         intersect_is_j = len(np.intersect1d(list_gs_j, list_ps_i))
-        #         union_is_j = len(np.union1d(list_gs_j, list_ps_i))
-        #         score_is_j = intersect_is_j / union_is_j
-
-        #         intersect_iv_j = len(np.intersect1d(list_gv_j, list_pv_i))
-        #         union_iv_j = len(np.union1d(list_gv_j, list_pv_i))
-        #         score_iv_j = intersect_iv_j / union_iv_j
-
-        #         # print(score_iv_j, scores[i][j], score_is_j, st_scores[i][j])
-        #         if st_scores[i][j] == -1:
-        #             weight[i][j] = score_iv_j * scores[i][j] +  (1 - score_is_j) * st_scores[i][j]
-        #         else:
-        #             weight[i][j] = score_iv_j * scores[i][j] +  score_is_j * st_scores[i][j]
-        #         if i <= 0:
-        #             print(weight[i][j])
-        #         # g.add_edge(query_fnames[i], gallery_fnames[j], weight = (score_iv_j * scores[i][j] + score_is_j * st_scores[i][j]))
-        #         # # g.add_edge(query_fnames[i], gallery_fnames[j], weight = fusion_scores[i][j])
-        #         # if(query_fnames[i] in query_nodes):
-        #         #     query_nodes.remove(query_fnames[i])
-        #         # if(gallery_fnames[j] in gallery_nodes):
-        #         #     gallery_nodes.remove(gallery_fnames[j])
-        # weight = np.array(weight)
-        # top_weight_index = np.argsort(-weight)[:, :opt.k4]
-        # for i in range(len(top_weight_index)):
-        #     for j in top_weight_index[i]:
-        #         g.add_edge(query_fnames[i], gallery_fnames[j], weight = weight[i][j])
-        #         if(query_fnames[i] in query_nodes):
-        #             query_nodes.remove(query_fnames[i])
-        #         if(gallery_fnames[j] in gallery_nodes):
-        #             gallery_nodes.remove(gallery_fnames[j])
-
-        if len(query_nodes) != 0:
-            for node in query_nodes:
-                g.add_edge(node, node, weight=1.)
-        
-        if len(gallery_nodes) != 0:
-            for node in gallery_nodes:
-                g.add_edge(node, node, weight=1.)
-        
-        if len(query_nodes) != 0:
-            for node in query_nodes:
-                h.add_edge(node, node, weight=1.)
-        
-        if len(gallery_nodes) != 0:
-            for node in gallery_nodes:
-                h.add_edge(node, node, weight=1.)
-        
-        # if len(query_nodes2) != 0:
-        #     for node in query_nodes2:
-        #         h.add_edge(node, node)
-        
-        # if len(gallery_nodes2) != 0:
-        #     for node in gallery_nodes2:
-        #         h.add_edge(node, node)
-        # g = nx.convert_node_labels_to_integers(g)
-        # Nodes = g.nodes()
-        # mapping = {old_label:new_label for new_label, old_label in enumerate(g.nodes())}
-        # g = nx.relabel_nodes(g, mapping)
-        print('number of nodes:{}'.format(g.number_of_nodes()))
-        # model1 = DeepWalk(g, walk_length=10, num_walks=10, workers=1)
-        # model2 = DeepWalk(h, walk_length=1, num_walks=10, workers=1)
-        model1 = Node2Vec(g, walk_length=10, num_walks=10,
-                     p=0.5, q=4, workers=1, use_rejection_sampling=1)
-        model2 = Node2Vec(h, walk_length=10, num_walks=10,
-                     p=0.5, q=4, workers=1, use_rejection_sampling=1)
-        # model1 = LINE(g, embedding_size=128, order='first')
-        # model1.train(batch_size=1024, epochs=20, verbose=2)
-        model1.train(window_size=10, iter=3)
-        model2.train(window_size=10, iter=3)
-
-        embeddings1 = model1.get_embeddings()
-        embeddings2 = model2.get_embeddings()
-        # q_indexs = np.where(np.in1d(Nodes,query_fnames))[0]
-        # g_indexs = np.where(np.in1d(Nodes,gallery_fnames))[0]
-
-        q_embeddings = []
-        g_embeddings = []
-        for i in query_fnames:
-            qembedding = opt.vision_weight * embeddings1[i] + (1 - opt.vision_weight) * embeddings2[i]
-            q_embeddings.append(qembedding)
-
-        for i in gallery_fnames:
-            gembedding = opt.vision_weight * embeddings1[i] + (1 - opt.vision_weight) * embeddings2[i]
-            g_embeddings.append(gembedding)
-        
-        q_embeddings = np.array(q_embeddings)
-        g_embeddings = np.array(g_embeddings)
-        # q_embeddings = np.array([np.concatenate((embeddings1[i], embeddings2[i])) for i in query_fnames])
-        # g_embeddings = np.array([np.concatenate((embeddings1[i], embeddings2[i])) for i in gallery_fnames])
-
-        # q_embeddings = np.array([embeddings1[i] for i in query_fnames])
-        # g_embeddings = np.array([embeddings1[i] for i in gallery_fnames])
-
-        # print(np.shape(q_embeddings))
-        q_embeddings = torch.from_numpy(q_embeddings)
-        g_embeddings = torch.from_numpy(g_embeddings)
-        distmat = compute_euclidean_distance(q_embeddings,g_embeddings)
-
-        mAP, all_cmc = map_cmc(distmat, query_ids, gallery_ids, query_cams, gallery_cams)
-        print('Mean AP: {:4.1%}'.format(mAP))
-        print('CMC Scores')
-        for k in (1, 5, 10):
-            print('  top-{:<4}{:12.1%}'
-                .format(k, all_cmc[k - 1]))
-
-        return
     # best_map = 0
     # if opt.evaluate:
     #     # print('Test source {} : '.format(opt.source))
@@ -1125,74 +682,65 @@ def main(opt):
     #     optimizer.load_state_dict(checkpoint['optimizer_dict'], strict=False)
     
     scheduler = WarmupMultiStepLR(optimizer,
-                                  [1],
+                                  [6],
                                   gamma=0.1,
                         warmup_factor=0.01,
-                            warmup_iters=1)
+                            warmup_iters=6)
 
     
     # Start training
     evaluator = Evaluator(backbone)
-    # for i in range(6):
+    t_train_loader = IterLoader(t_train_loader, length=len(t_train_loader))
 
-    # for epoch in range(start_epoch, opt.epochs):
-    # if epoch % opt.switch == 0 and opt.switch > 0:
-
-    features, fpaths, labels, camids = \
-        evaluator.extract_tgt_train_features(
-                            t_traintest_loader2)
-    print("features len:{}".format(len(features)))
-    # cam_features=defaultdict(list)
-    # for feature,camid in zip(features,camids):
-    #     cam_features[camid].append(feature)
-    
-    # old_cls_tgt.cam_features = cam_features
-
-    graph = HG(opt.lamd, features, labels, camids)
-
-    # hyper parameter
-    graph.general_graph = opt.general_graph
-    graph.homo_ap = opt.homo_ap
-
-    start1 = time.time()
-
-    # 利用训练得到的视觉模型得到时空分数
-    # indexs = evaluator.transfer(t_traintest_loader1, t_train_real1, opt.useful_cnt)
-    
+    for epoch in range(start_epoch, opt.epochs):
+        features, fpaths, labels, camids = \
+            evaluator.extract_tgt_train_features(
+                                t_traintest_loader)
+        print("features len:{}".format(len(features)))
 
 
-    if opt.only_graph:
-        graph_target = graph.only_graph(ks=opt.ks, kd=opt.kd, k2=opt.k2)
-    else:
-        if opt.cos_sim:
-            graph_target = graph.old_cos_propagation(ks=opt.ks, kd=opt.kd, k2=opt.k2)
-        else:
-            if opt.tracklet:
-                graph_target = graph.old_tracklet_propagation(ks=opt.ks, kd=opt.kd, k2=opt.k2)
-            else:
-                graph_target = graph.old_delta_propagation(ks=opt.ks, kd=opt.kd, k2=opt.k2, opt = opt)
+        graph = HG(opt.lamd, features, labels, camids)
 
-    print('###graph time: ', time.time()-start1)
-    # Trainer
-    trainer = Trainer(backbone, old_cls_tgt)
-    trainer.graph_target = graph_target
+        # hyper parameter
+        graph.general_graph = opt.general_graph
+        graph.homo_ap = opt.homo_ap
 
-    
-    trainer.target_train(optimizer,
-                    t_train_loader2)
-    scheduler.step()
+        start1 = time.time()
 
-    mAP,_,_,_,_,_,_ = evaluator.evaluate(t_query_loader, t_gallery_loader, t_query, t_gallery)
-    is_best = (mAP > best_map)
-    best_map = max(mAP, best_map)
+        # if opt.only_graph:
+        #     graph_target = graph.only_graph(ks=opt.ks, kd=opt.kd, k2=opt.k2)
+        # else:
+        #     if opt.cos_sim:
+        #         graph_target = graph.old_cos_propagation(ks=opt.ks, kd=opt.kd, k2=opt.k2)
+        #     else:
+        #         if opt.tracklet:
+        #             graph_target = graph.old_tracklet_propagation(ks=opt.ks, kd=opt.kd, k2=opt.k2)
+        #         else:
+        graph_target = graph.old_delta_propagation(k2 = opt.k2, opt = opt, t_train = t_train_real)
 
-    save_checkpoint({
-        'backbone_dict': backbone.state_dict(),
-        'optimizer_dict': optimizer.state_dict(),
-        # 'epoch': epoch + 1,
-    }, is_best,fpath=osp.join(opt.logs_dir, 'checkpoint.pth.tar'))
-    # print('\n * Finished epoch {:3d} \n'.
-    #     format(epoch))
+        print('###graph time: ', time.time()-start1)
+        # Trainer
+        trainer = Trainer(backbone, old_cls_tgt)
+        trainer.graph_target = graph_target
+
+        t_train_loader.new_epoch()
+        print("第%d个epoch的学习率：%f" % (epoch, optimizer.param_groups[0]['lr']))
+        trainer.target_train(len(t_train_loader), optimizer,
+                        t_train_loader, epoch, opt.arch)
+        scheduler.step()
+
+        if (epoch+1)%opt.eval_step==0:
+            mAP ,top1 ,_ ,_,_,_,_,_ = evaluator.evaluate(t_query_loader, t_gallery_loader, t_query, t_gallery)
+            is_best = (mAP  + top1 > best_map)
+            best_map = max(mAP  + top1, best_map)
+
+            save_checkpoint({
+                'backbone_dict': backbone.state_dict(),
+                'optimizer_dict': optimizer.state_dict(),
+                'epoch': epoch + 1,
+            }, is_best,fpath=osp.join(opt.logs_dir, 'checkpoint.pth.tar'))
+        # print('\n * Finished epoch {:3d} \n'.
+        #     format(epoch))
 
     print('Best mAP:{} : '.format(best_map))
     # evaluator.evaluate(t_query_loader, t_gallery_loader, t_query, t_gallery, eval_path=args.eval_dir)
@@ -1220,8 +768,7 @@ if __name__ == '__main__':
     parser.add_argument('--width', type=int, default=128,
                         help="input width, default: 128")
     # model
-    parser.add_argument('-a', '--arch', type=str, default='resnet50',
-                        choices=models.names())
+    parser.add_argument('-a', '--arch', type=str, default='resnet50')
     parser.add_argument('--features', type=int, default=0)
     parser.add_argument('--dropout', type=float, default=0)
     #vit
@@ -1238,10 +785,17 @@ if __name__ == '__main__':
     parser.add_argument('-pp','--pre_train', type=str, metavar='PATH', default='')
     parser.add_argument('--evaluate', action='store_true', default=False,
                         help="evaluation only")
+    parser.add_argument('--wo-st-train', action='store_true', default=False,
+                        help="without spatial-temporal training")
+    parser.add_argument('--wo-gaussian-sim', action='store_true', default=False,
+                        help="without gaussian sim for training")
+    parser.add_argument('--use-old-hgo', action='store_true', default=False,
+                        help="without gaussian sim for training")
+    parser.add_argument('--iters', type=int, default=202)
     parser.add_argument('--epochs', type=int, default=8)
+    parser.add_argument('--eval-step', type=int, default=1)
     parser.add_argument('--epochs_decay', type=int, default=40)
     #st
-    parser.add_argument('--useful_cnt', default=10, type=int, help='')
     parser.add_argument('--interval', default=25, type=int, help='')
     # misc
     working_dir = osp.dirname(osp.abspath(__file__))
@@ -1259,14 +813,11 @@ if __name__ == '__main__':
     parser.add_argument('--tao', type=float, default=0.05)
     parser.add_argument('--switch', type=int, default=1)
     parser.add_argument('--lamd', type=float, default=0.99)
-    parser.add_argument('--ratio', type=float, default=0.65)
-    parser.add_argument('--vision_weight', type=float, default=0.9)
-    parser.add_argument('--ks', type=int, default=2)
-    parser.add_argument('--kd', type=int, default=4)
+    # parser.add_argument('--ratio', type=float, default=0.65)
+    # parser.add_argument('--vision_weight', type=float, default=0.9)
+    parser.add_argument('--ks', type=int, default=3)
+    parser.add_argument('--kl', type=int, default=60)
     parser.add_argument('--k2', type=int, default=14)
-    parser.add_argument('--kq', type=int, default=5)
-    parser.add_argument('--k3', type=int, default=5)
-    parser.add_argument('--k4', type=int, default=50)
     parser.add_argument('--use-camstyle', action='store_true', default=False)
     parser.add_argument('--use-sparse', action='store_true', default=False)
     parser.add_argument('--general-graph', action='store_true', default=False)

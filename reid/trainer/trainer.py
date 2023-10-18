@@ -33,7 +33,7 @@ class Trainer(object):
         indices = indices.cuda()
         return inputs, pids, indices, camids, graph_target
 
-    def target_train(self, optimizer, t_train_loader, epoch):
+    def target_train(self, train_iters, optimizer, t_train_loader, epoch, arch):
         batch_time = AverageMeter()
         data_time = AverageMeter()
         losses = AverageMeter()
@@ -42,16 +42,21 @@ class Trainer(object):
         print_freq = len(t_train_loader) // 4
         self.backbone.train()
         self.cls_layer1.train()
-        for i, x_target in enumerate(t_train_loader):
+        # for i, x_target in enumerate(t_train_loader):
+        for i in range(train_iters):
             data_time.update(time.time() - end)
+            x_target = t_train_loader.next()
             x_target, y_pid, y_idx, camids, graph_target = \
                 self.parse_with_graph_target(x_target)
-            x_target, x_target_bn = self.backbone(x_target)
-            # x_target_bn = self.backbone(x_target)
+            if "vit" in arch:
+                x_target_bn = self.backbone(x_target)
+            else:
+                x_target, x_target_bn = self.backbone(x_target)
+            
             loss = self.cls_layer1(x_target_bn, y_pid, y_idx, camids, graph_target, epoch)
 
-            losses.update(loss.item(), x_target.size(0))
-            # losses.update(loss.item(), x_target_bn.size(0))
+            # losses.update(loss.item(), x_target.size(0))
+            losses.update(loss.item(), x_target_bn.size(0))
 
             optimizer.zero_grad()
             loss.backward()

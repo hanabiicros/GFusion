@@ -33,23 +33,23 @@ def prepare_diff_folder(fusion_param):
     shutil.copy(fusion_param['renew_pid_path'], diff_predict_path)
 
 
-def get_predict_delta_tracks(fusion_param, source='DukeMTMC-re-ID', target='market' , data_path='/hdd/sdb/zyb/TFusion/SpCL/data', useful_predict_limit=10, random=False, diff_person=False, use_real_st=False, indexs=None):
+def get_predict_delta_tracks(fusion_param, target='market', t_train=None, random=False, diff_person=False, use_real_st=False, indexs=None):
     # 获取左图列表
     if '_dukequerytail' in fusion_param['renew_pid_path']:
         print('query with duke tail frames, train with duke all frames')
-        return get_predict_frame_delta_tracks(fusion_param, source=source, target=target,data_path=data_path,useful_predict_limit=useful_predict_limit, random=random,
+        return get_predict_frame_delta_tracks(fusion_param, target=target, t_train=t_train, random=random,
                                               diff_person=diff_person, use_real_st=use_real_st)
     else:
-        return get_predict_pure_delta_tracks(fusion_param, source=source, target=target,data_path=data_path,useful_predict_limit=useful_predict_limit, random=random, diff_person=diff_person, use_real_st=use_real_st, indexs=indexs)
+        return get_predict_pure_delta_tracks(fusion_param, target=target, t_train=t_train, random=random, diff_person=diff_person, use_real_st=use_real_st, indexs=indexs)
 
 
-def get_predict_pure_delta_tracks(fusion_param, source, target, data_path, useful_predict_limit=10, random=False, diff_person=False, use_real_st=False, indexs=None):
+def get_predict_pure_delta_tracks(fusion_param, target, t_train, random=False, diff_person=False, use_real_st=False, indexs=None):
     # 获取左图列表
     # dataset = get_data(source,target,data_path)
     # train = dataset.train
-    dataset = get_data(source, target, data_path)
-    train = dataset.target_train_real_s2
-    real_tracks = [[pid,camid,frameid,sequenceid]for _, pid, camid,sequenceid,frameid in train]
+    # dataset = get_data(source, target, data_path)
+    # train = dataset.target_train_real
+    real_tracks = [[pid,camid,frameid,sequenceid,fpath]for fpath, pid, camid,sequenceid,frameid in t_train]
     if target == 'market':
         print('market')
         camera_cnt = 6
@@ -72,15 +72,17 @@ def get_predict_pure_delta_tracks(fusion_param, source, target, data_path, usefu
     person_cnt = len(real_tracks)
     print('person_count:{}'.format(person_cnt))
     print(len(predict_lines))
+
+    fpaths = list()
     # market1501数据集有六个序列，只有同一个序列才能计算delta
     if random:
         useful_predict_limit = max(len(predict_lines)/100, 100)
     if not use_real_st:
         # for i, line in enumerate(predict_lines):
         for i, predict_pids in enumerate(predict_lines):
-            # useful_cnt = 0
+            # kt = 0
             for predict_pid in predict_pids:
-                # if useful_cnt > useful_predict_limit:
+                # if kt > useful_predict_limit:
                 #     break
                 if random:
                     predict_pid = randint(0, person_cnt - 1)
@@ -94,7 +96,7 @@ def get_predict_pure_delta_tracks(fusion_param, source, target, data_path, usefu
                 # todo ignore same camera track
                 if real_tracks[i][3] == real_tracks[predict_pid][3] and real_tracks[i][1] != real_tracks[predict_pid][1]:
                     # and pid equal: real st
-                    # useful_cnt += 1
+                    # kt += 1
                     delta = real_tracks[i][2] - real_tracks[predict_pid][2]
                     if target == 'msmt17':
                         if abs(delta) < 1000:
@@ -103,14 +105,17 @@ def get_predict_pure_delta_tracks(fusion_param, source, target, data_path, usefu
                         camera_delta_s[real_tracks[i][1]][real_tracks[predict_pid][1]].append(delta)
             # print('',format(len(camera_delta_s[real_tracks[i][1]])))
     else:
+        print("use true st")
         for i, predict_pids in enumerate(predict_lines):
             # predict_pids = line.split(' ')
             for predict_pid in predict_pids:
                 predict_pid = int(predict_pid)
                 # same seq
                 # todo ignore same camera track
-                if real_tracks[i][3] == real_tracks[predict_pid][3] and real_tracks[i][1] != real_tracks[predict_pid][1] \
-                        and real_tracks[i][0] == real_tracks[predict_pid][0]:
+                if real_tracks[i][3] == real_tracks[predict_pid][3] and real_tracks[i][1] == 0  and real_tracks[predict_pid][1] == 1 \
+                        and real_tracks[i][0] != real_tracks[predict_pid][0]:
+                    fpaths.append(real_tracks[i][4])
+                    fpaths.append(real_tracks[predict_pid][4])
                     delta = real_tracks[i][2] - real_tracks[predict_pid][2]
                     if abs(delta) < 100000:
                         camera_delta_s[real_tracks[i][1]][real_tracks[predict_pid][1]].append(delta)
@@ -120,6 +125,9 @@ def get_predict_pure_delta_tracks(fusion_param, source, target, data_path, usefu
             delta_s.sort()
     print('deltas sorted')
     # for python
+    # fpaths = np.array(fpaths)
+    # print(fpaths[0])
+    # np.savetxt("/home/zyb/projects/HGO_v2/fpaths_1_2.txt", fpaths, fmt='%s')
     safe_remove(fusion_param['distribution_pickle_path'])
     pickle_save(fusion_param['distribution_pickle_path'], camera_delta_s)
     print('deltas saved to ' + fusion_param['distribution_pickle_path'])
@@ -162,9 +170,9 @@ def get_predict_frame_delta_tracks(fusion_param, useful_predict_limit=10, random
         useful_predict_limit = max(len(predict_lines)/100, 100)
     for i, line in enumerate(predict_lines):
         predict_pids = line.split(' ')
-        useful_cnt = 0
+        kt = 0
         for j, predict_pid in enumerate(predict_pids):
-            if useful_cnt > useful_predict_limit:
+            if kt > useful_predict_limit:
                 break
             if random:
                 predict_pid = randint(0, person_cnt - 1)
@@ -179,7 +187,7 @@ def get_predict_frame_delta_tracks(fusion_param, useful_predict_limit=10, random
             if real_tracks[i][3] == real_tracks[predict_pid][3] and real_tracks[i][1] != real_tracks[predict_pid][1]:
                 # and pid equal: real st
                 if True:
-                    useful_cnt += 1
+                    kt += 1
                     delta = real_tracks[i][2] - real_tracks[predict_pid][2]
                     if abs(delta) < 1000000:
                         camera_delta_s[real_tracks[i][1] - 1][real_tracks[predict_pid][1] - 1].append(delta)

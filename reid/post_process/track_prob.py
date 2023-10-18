@@ -33,7 +33,7 @@ def track_score(camera_delta_s, camera1, time1, camera2, time2, interval=100, mo
         return global_track_score(camera_delta_s, camera1, time1, camera2, time2, interval=interval,
                                   filter_interval=filter_interval)
 
-
+    
 def global_track_score(camera_delta_s, camera1, time1, camera2, time2, interval=100, filter_interval=1000):
     if abs(time1 - time2) > filter_interval:
         return -1.
@@ -41,22 +41,27 @@ def global_track_score(camera_delta_s, camera1, time1, camera2, time2, interval=
     #camera2 -= 1
     cur_delta = time1 - time2
     delta_distribution = camera_delta_s[camera1][camera2]
-    total_cnt = sum(map(len, camera_delta_s[camera1]))
-    # 10 second
+    if len(delta_distribution) == 0:
+        return 0.0
+    # total_cnt = sum(map(len, camera_delta_s[camera1]))
+
     left_bound = cur_delta - interval
     right_bound = cur_delta + interval
     # 二分查找位置，得到容错区间内时空点数量
     left_index = binary_search(delta_distribution, left_bound)
     right_index = binary_search(delta_distribution, right_bound)
-    if total_cnt == 0 or len(camera_delta_s[camera1][camera2]) == 0:
-        return 0.0
+    if right_index > left_index:
+        return 1.
+    else:
+        return 0.
+    # if total_cnt == 0 or len(camera_delta_s[camera1][camera2]) == 0:
+    #     return 0.0
     # 这里除以total_cnt而非len(camera_delta_s[camera1][camera2])，体现空间概率
-    score = np.float32((right_index - left_index) / float(total_cnt))
+    # score = np.float32((right_index - left_index) / float(total_cnt))
     # 训练集中同摄像头概率很高,但评估又不要同摄像头的,体现空间概率很不划算
     # score = (right_index - left_index + 1) / float(len(camera_delta_s[camera1][camera2]))
-    if len(delta_distribution) == 0:
-        return 0.0
-    return score
+    
+    # return score
 
 
 def local_frame_infos(frames, time1, search_interval_length):

@@ -19,7 +19,7 @@ from reid.utils.file_helper import safe_link
 #     working_dir = osp.dirname(osp.abspath(__file__))
 #     parser.add_argument('--data_dir', type=str, metavar='PATH',
 #                         default='/hdd/sdb/zyb/TFusion/SpCL/data')
-#     parser.add_argument('--useful_cnt', default=10, type=int, help='')
+#     parser.add_argument('--kt', default=10, type=int, help='')
 #     parser.add_argument('--interval', default=25, type=int, help='')
 #     parser.add_argument('--en', default=0, type=float, help='[0,1], error of negative sample')
 #     parser.add_argument('--window_interval', default=500, type=int, help='')
@@ -48,10 +48,10 @@ def build_param(opt):
     # # safe_link(source_dir + '-test/score.txt', param['renew_ac_path'])
     # fusion_param.ctrl_msg['data_folder_path'] = opt.source + '_' + opt.target + '-train'
 
-def stmain(opt, indexs, scores=None, gscores=None, qgindexs=None, ggindexs=None, flag=True):
+def stmain(opt, indexs, t_train=None, t_query=None, t_gallery=None, train_indexs=None, qgindexs=None, ggindexs=None, flag=True):
     # opt = arg_parse()
     build_param(opt)
-    return init_strict_img_st_fusion(opt, indexs, scores, gscores, qgindexs, ggindexs, flag)
+    return init_strict_img_st_fusion(opt, indexs, t_train, t_query, t_gallery, train_indexs, qgindexs, ggindexs, flag)
 
 if __name__ == '__main__':
     stmain()
